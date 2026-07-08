@@ -1,15 +1,14 @@
-type Props = {
-  title: string;
-  value: string;
+type Props={
+  title:string;
+  icon:string;
+  status:string;
 };
 
-function StatusCard({ title, value }: Props) {
-  return (
-    <div className="card">
-      <h2>{title}</h2>
-      <p>{value}</p>
+export default function StatusCard({title,icon,status}:Props){
+  return(
+    <div className="status-card">
+      <h2><span>{icon}</span>{title}</h2>
+      <p>{status}</p>
     </div>
   );
 }
-
-export default StatusCard;

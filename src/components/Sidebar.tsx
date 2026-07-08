@@ -1,5 +1,5 @@
-function Sidebar() {
-  return (
+export default function Sidebar(){
+  return(
     <aside className="sidebar">
       <button>🏠 Dashboard</button>
       <button>🤖 AI</button>
@@ -7,9 +7,7 @@ function Sidebar() {
       <button>📁 Files</button>
       <button>📷 Cameras</button>
       <button>🎵 Music</button>
-      <button>⚙ Settings</button>
+      <button>⚙️ Settings</button>
     </aside>
   );
 }
-
-export default Sidebar;
