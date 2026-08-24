@@ -1,0 +1,394 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		E1A000000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E1A000000000000000000002 /* Assets.xcassets */; };
+		05CE7AC0529D3D7C1C259974 /* SentinelCloud.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB2BEE021A5F8539BD1B5C2 /* SentinelCloud.swift */; };
+		0BE95AADCEDE3BF24D9645E5 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CACE1AE3B4E22B6FDF46A72E /* RootView.swift */; };
+		7D545E91D4A0F64CCB0D2819 /* SentinelAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97C8AB0F0F47969801D50C1 /* SentinelAppModel.swift */; };
+		A119CFFCAB41AC0EA91BBFDE /* SentinelBaseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B54F5AC2FB302AD9C25E3A5 /* SentinelBaseApp.swift */; };
+		B119CFFCAB41AC0EA91BBFDE /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B119CFFCAB41AC0EA91BBFDF /* KeychainStore.swift */; };
+		C119CFFCAB41AC0EA91BBFDE /* SentinelTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C119CFFCAB41AC0EA91BBFDF /* SentinelTransfer.swift */; };
+		D119CFFCAB41AC0EA91BBFDE /* SentinelWeather.swift in Sources */ = {isa = PBXBuildFile; fileRef = D119CFFCAB41AC0EA91BBFDF /* SentinelWeather.swift */; };
+		E219CFFCAB41AC0EA91BBFDE /* ConversationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E219CFFCAB41AC0EA91BBFDF /* ConversationRepository.swift */; };
+		E319CFFCAB41AC0EA91BBFDE /* WebRTCCompileCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = E319CFFCAB41AC0EA91BBFDF /* WebRTCCompileCheck.swift */; };
+		E819CFFCAB41AC0EA91BBFDE /* LiveTalkManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E819CFFCAB41AC0EA91BBFDF /* LiveTalkManager.swift */; };
+		E419CFFCAB41AC0EA91BBFDE /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = E519CFFCAB41AC0EA91BBFDF /* WebRTC */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		E1A000000000000000000002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		2CB2BEE021A5F8539BD1B5C2 /* SentinelCloud.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentinelCloud.swift; sourceTree = "<group>"; };
+		5B54F5AC2FB302AD9C25E3A5 /* SentinelBaseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentinelBaseApp.swift; sourceTree = "<group>"; };
+		B119CFFCAB41AC0EA91BBFDF /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		C119CFFCAB41AC0EA91BBFDF /* SentinelTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentinelTransfer.swift; sourceTree = "<group>"; };
+		D119CFFCAB41AC0EA91BBFDF /* SentinelWeather.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentinelWeather.swift; sourceTree = "<group>"; };
+		E219CFFCAB41AC0EA91BBFDF /* ConversationRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationRepository.swift; sourceTree = "<group>"; };
+		E319CFFCAB41AC0EA91BBFDF /* WebRTCCompileCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRTCCompileCheck.swift; sourceTree = "<group>"; };
+		E819CFFCAB41AC0EA91BBFDF /* LiveTalkManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTalkManager.swift; sourceTree = "<group>"; };
+		695B9E6873AB2DD053513087 /* SentinelBase.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SentinelBase.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CACE1AE3B4E22B6FDF46A72E /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		F97C8AB0F0F47969801D50C1 /* SentinelAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentinelAppModel.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		154229B019059A88B3E392DA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				695B9E6873AB2DD053513087 /* SentinelBase.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		35F3F4763425221B7DF9EA22 /* SentinelBase */ = {
+			isa = PBXGroup;
+			children = (
+				E1A000000000000000000002 /* Assets.xcassets */,
+				CACE1AE3B4E22B6FDF46A72E /* RootView.swift */,
+				F97C8AB0F0F47969801D50C1 /* SentinelAppModel.swift */,
+				5B54F5AC2FB302AD9C25E3A5 /* SentinelBaseApp.swift */,
+				2CB2BEE021A5F8539BD1B5C2 /* SentinelCloud.swift */,
+				B119CFFCAB41AC0EA91BBFDF /* KeychainStore.swift */,
+				C119CFFCAB41AC0EA91BBFDF /* SentinelTransfer.swift */,
+				D119CFFCAB41AC0EA91BBFDF /* SentinelWeather.swift */,
+				E219CFFCAB41AC0EA91BBFDF /* ConversationRepository.swift */,
+				E319CFFCAB41AC0EA91BBFDF /* WebRTCCompileCheck.swift */,
+				E819CFFCAB41AC0EA91BBFDF /* LiveTalkManager.swift */,
+			);
+			path = SentinelBase;
+			sourceTree = "<group>";
+		};
+		35FB8F64C2DC9B16990B3BEC = {
+			isa = PBXGroup;
+			children = (
+				35F3F4763425221B7DF9EA22 /* SentinelBase */,
+				154229B019059A88B3E392DA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		995F54970F6C0775D57F8BD2 /* SentinelBase */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 450B4950B71DF86569A95BEA /* Build configuration list for PBXNativeTarget "SentinelBase" */;
+			buildPhases = (
+				4D571EBA80BE9AA1EFA1ED86 /* Sources */,
+				E619CFFCAB41AC0EA91BBFDF /* Frameworks */,
+				E1A000000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SentinelBase;
+			packageProductDependencies = (
+				E519CFFCAB41AC0EA91BBFDF /* WebRTC */,
+			);
+			productName = SentinelBase;
+			productReference = 695B9E6873AB2DD053513087 /* SentinelBase.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D970FC70F7F7DFB12C990D78 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+			};
+			buildConfigurationList = F87EC1444DBF58DCDE34D3A5 /* Build configuration list for PBXProject "SentinelBase" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 35FB8F64C2DC9B16990B3BEC;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 154229B019059A88B3E392DA /* Products */;
+			packageReferences = (
+				E719CFFCAB41AC0EA91BBFDF /* XCRemoteSwiftPackageReference "WebRTC" */,
+			);
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				995F54970F6C0775D57F8BD2 /* SentinelBase */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E619CFFCAB41AC0EA91BBFDF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E419CFFCAB41AC0EA91BBFDE /* WebRTC in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		E1A000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E1A000000000000000000001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4D571EBA80BE9AA1EFA1ED86 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0BE95AADCEDE3BF24D9645E5 /* RootView.swift in Sources */,
+				7D545E91D4A0F64CCB0D2819 /* SentinelAppModel.swift in Sources */,
+				A119CFFCAB41AC0EA91BBFDE /* SentinelBaseApp.swift in Sources */,
+				05CE7AC0529D3D7C1C259974 /* SentinelCloud.swift in Sources */,
+				B119CFFCAB41AC0EA91BBFDE /* KeychainStore.swift in Sources */,
+				C119CFFCAB41AC0EA91BBFDE /* SentinelTransfer.swift in Sources */,
+				D119CFFCAB41AC0EA91BBFDE /* SentinelWeather.swift in Sources */,
+				E219CFFCAB41AC0EA91BBFDE /* ConversationRepository.swift in Sources */,
+				E319CFFCAB41AC0EA91BBFDE /* WebRTCCompileCheck.swift in Sources */,
+				E819CFFCAB41AC0EA91BBFDE /* LiveTalkManager.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		72F2CCF002468FDDAFEE7B16 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		859DC8485A76F7DE038A76D8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 9G2H3DAXFZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Sentinel;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Protect Sentinel settings and sensitive actions.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Sentinel uses your local network to transfer files directly between your paired devices.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Sentinel uses your location for navigation, weather and nearby places.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Sentinel uses the microphone only when you start voice control.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Sentinel uses the camera when you choose to attach a photo to Sentinel AI.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Sentinel converts your speech into commands and chat messages.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.2.1;
+				PRODUCT_BUNDLE_IDENTIFIER = uk.co.sentinel.base;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.1;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		DF952F800463120CDC68C258 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 9G2H3DAXFZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Sentinel;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Protect Sentinel settings and sensitive actions.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Sentinel uses your local network to transfer files directly between your paired devices.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Sentinel uses your location for navigation, weather and nearby places.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Sentinel uses the microphone only when you start voice control.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Sentinel uses the camera when you choose to attach a photo to Sentinel AI.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Sentinel converts your speech into commands and chat messages.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.2.1;
+				PRODUCT_BUNDLE_IDENTIFIER = uk.co.sentinel.base;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.1;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F910613243D1E402CA479C8D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E719CFFCAB41AC0EA91BBFDF /* XCRemoteSwiftPackageReference "WebRTC" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stasel/WebRTC.git";
+			requirement = { kind = exactVersion; version = 151.0.0; };
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E519CFFCAB41AC0EA91BBFDF /* WebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E719CFFCAB41AC0EA91BBFDF /* XCRemoteSwiftPackageReference "WebRTC" */;
+			productName = WebRTC;
+		};
+/* End XCSwiftPackageProductDependency section */
+
+/* Begin XCConfigurationList section */
+		450B4950B71DF86569A95BEA /* Build configuration list for PBXNativeTarget "SentinelBase" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DF952F800463120CDC68C258 /* Debug */,
+				859DC8485A76F7DE038A76D8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F87EC1444DBF58DCDE34D3A5 /* Build configuration list for PBXProject "SentinelBase" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F910613243D1E402CA479C8D /* Debug */,
+				72F2CCF002468FDDAFEE7B16 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D970FC70F7F7DFB12C990D78 /* Project object */;
+}

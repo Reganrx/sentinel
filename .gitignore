@@ -1,0 +1,8 @@
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+.env
+.env.*
+Secrets.xcconfig
+Config/Secrets.xcconfig
