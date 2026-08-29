@@ -1,0 +1,9 @@
+@media (min-width: 701px) {
+  .home-welcome {
+    max-width: none;
+  }
+
+  .home-context-strip {
+    transform: translateY(-12px);
+  }
+}

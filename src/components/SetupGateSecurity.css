@@ -1,0 +1,42 @@
+.setup-gate__section {
+  display: grid;
+  gap: 14px;
+}
+
+.setup-gate__panel {
+  box-sizing: border-box;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+
+.setup-gate__fields {
+  max-height: min(330px, 30vh);
+}
+
+.setup-gate__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: 10px;
+  padding: 14px 0 2px;
+  background: linear-gradient(180deg, transparent, #071b30 28%);
+}
+
+@media (max-height: 820px) {
+  .setup-gate__panel {
+    padding-top: 28px;
+    padding-bottom: 24px;
+  }
+
+  .setup-gate h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+  }
+
+  .setup-gate__steps {
+    margin: 16px 0;
+  }
+
+  .setup-gate__fields {
+    max-height: 26vh;
+  }
+}

@@ -1,0 +1,219 @@
+.weather-background{
+
+    position:fixed;
+
+    inset:0;
+
+    overflow:hidden;
+
+    z-index:-10;
+
+    transition:
+
+        background 1.5s ease;
+
+}
+
+/* ----------------------- */
+
+.weather-overlay{
+
+    position:absolute;
+
+    inset:0;
+
+    backdrop-filter:blur(80px);
+
+    opacity:.45;
+
+}
+
+/* ----------------------- */
+
+.weather-glow{
+
+    position:absolute;
+
+    width:650px;
+
+    height:650px;
+
+    top:-180px;
+
+    right:-120px;
+
+    border-radius:50%;
+
+    filter:blur(140px);
+
+    animation:
+
+        drift 14s ease-in-out infinite;
+
+}
+
+/* ----------------------- */
+
+.weather-background.sunny{
+
+    background:
+
+        linear-gradient(
+
+            180deg,
+
+            #22466a,
+
+            #08121c
+
+        );
+
+}
+
+.weather-background.sunny .weather-glow{
+
+    background:
+
+        rgba(255,198,77,.22);
+
+}
+
+/* ----------------------- */
+
+.weather-background.cloudy{
+
+    background:
+
+        linear-gradient(
+
+            180deg,
+
+            #42566e,
+
+            #101922
+
+        );
+
+}
+
+.weather-background.cloudy .weather-glow{
+
+    background:
+
+        rgba(190,205,220,.12);
+
+}
+
+/* ----------------------- */
+
+.weather-background.rain{
+
+    background:
+
+        linear-gradient(
+
+            180deg,
+
+            #22364b,
+
+            #050b12
+
+        );
+
+}
+
+.weather-background.rain .weather-glow{
+
+    background:
+
+        rgba(90,145,255,.12);
+
+}
+
+/* ----------------------- */
+
+.weather-background.snow{
+
+    background:
+
+        linear-gradient(
+
+            180deg,
+
+            #6e879d,
+
+            #24384b
+
+        );
+
+}
+
+.weather-background.snow .weather-glow{
+
+    background:
+
+        rgba(255,255,255,.18);
+
+}
+
+/* ----------------------- */
+
+.weather-background.default{
+
+    background:
+
+        linear-gradient(
+
+            180deg,
+
+            #13283a,
+
+            #07131d
+
+        );
+
+}
+
+.weather-background.default .weather-glow{
+
+    background:
+
+        rgba(130,180,255,.10);
+
+}
+
+/* ----------------------- */
+
+@keyframes drift{
+
+    0%{
+
+        transform:
+
+            translate(0px,0px)
+
+            scale(1);
+
+    }
+
+    50%{
+
+        transform:
+
+            translate(-40px,35px)
+
+            scale(1.08);
+
+    }
+
+    100%{
+
+        transform:
+
+            translate(0px,0px)
+
+            scale(1);
+
+    }
+
+}

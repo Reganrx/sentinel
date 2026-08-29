@@ -1,0 +1,67 @@
+.current-weather{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+}
+
+.current-weather-main{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:10px;
+
+}
+
+.current-temperature{
+
+    font-size:72px;
+
+    font-weight:700;
+
+    color:white;
+
+    line-height:1;
+
+}
+
+.current-condition{
+
+    font-size:24px;
+
+    color:white;
+
+}
+
+.current-range{
+
+    color:rgba(255,255,255,.65);
+
+}
+
+.current-updated{
+
+    color:rgba(255,255,255,.55);
+
+    font-size:14px;
+
+}
+
+@media (max-width:900px){
+
+    .current-weather{
+
+        flex-direction:column;
+
+        align-items:flex-start;
+
+        gap:24px;
+
+    }
+
+}

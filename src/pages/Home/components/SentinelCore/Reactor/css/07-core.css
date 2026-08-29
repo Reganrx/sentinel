@@ -1,0 +1,528 @@
+/*==================================================
+    SENTINEL REACTOR V2
+    CORE SYSTEM
+==================================================*/
+
+/*==================================================
+    ROOT
+==================================================*/
+
+.core,
+.hex-lattice,
+.pulse {
+
+    isolation: isolate;
+
+    pointer-events: none;
+
+    transform-origin: center;
+
+    transform-box: fill-box;
+
+}
+
+/*==================================================
+    HEX LATTICE
+==================================================*/
+
+.hex-lattice {
+
+    opacity: var(--reactor-core-opacity);
+
+    filter:
+
+        brightness(var(--reactor-core-brightness))
+
+        saturate(var(--reactor-saturation))
+
+        hue-rotate(var(--reactor-hue));
+
+    animation:
+
+        latticeRotate
+        calc(180s * var(--reactor-rotation-speed))
+        linear
+        infinite;
+
+}
+
+.hex-cell {
+
+    fill: none;
+
+    stroke: var(--reactor-secondary);
+
+    stroke-width: var(--reactor-stroke-xs);
+
+    opacity: .18;
+
+    transition:
+
+        opacity var(--reactor-transition-normal)
+            var(--reactor-ease-standard),
+
+        stroke var(--reactor-transition-normal)
+            var(--reactor-ease-standard);
+
+}
+
+.support-spoke {
+
+    stroke: var(--reactor-primary);
+
+    stroke-width: var(--reactor-stroke-xs);
+
+    opacity: .22;
+
+}
+
+.stiffener-ring {
+
+    fill: none;
+
+    stroke: var(--reactor-secondary);
+
+    stroke-width: var(--reactor-stroke-xs);
+
+    opacity: .25;
+
+}
+
+.anchor-point {
+
+    fill: var(--reactor-primary);
+
+    filter:
+
+        drop-shadow(
+            0 0 var(--reactor-glow-sm)
+            var(--reactor-primary)
+        );
+
+}
+
+/*==================================================
+    CORE
+==================================================*/
+
+.core {
+
+    opacity: var(--reactor-core-opacity);
+
+    filter:
+
+        brightness(var(--reactor-core-brightness))
+
+        saturate(var(--reactor-saturation))
+
+        hue-rotate(var(--reactor-hue));
+
+    transform:
+
+        scale(var(--reactor-core-scale));
+
+    animation:
+
+        coreBreathing
+        calc(7s * var(--reactor-pulse-speed))
+        ease-in-out
+        infinite;
+
+}
+
+.outer-plasma {
+
+    filter:
+
+        blur(var(--reactor-blur-lg))
+
+        drop-shadow(
+            0 0 var(--reactor-glow-lg)
+            var(--reactor-primary)
+        );
+
+}
+
+.plasma-shell {
+
+    filter:
+
+        blur(var(--reactor-blur-sm))
+
+        drop-shadow(
+            0 0 var(--reactor-glow-md)
+            var(--reactor-primary)
+        );
+
+}
+
+.core-turbulence {
+
+    animation:
+
+        turbulenceDrift
+        calc(5s * var(--reactor-plasma-speed))
+        ease-in-out
+        infinite;
+
+}
+
+.core-filament {
+
+    stroke-linecap: round;
+
+    filter:
+
+        drop-shadow(
+            0 0 var(--reactor-glow-md)
+            var(--reactor-accent)
+        );
+
+    animation:
+
+        filamentOscillation
+        calc(4s * var(--reactor-plasma-speed))
+        ease-in-out
+        infinite;
+
+}
+
+.core-hotspot {
+
+    filter:
+
+        drop-shadow(
+            0 0 var(--reactor-glow-lg)
+            var(--reactor-accent)
+        );
+
+    animation:
+
+        hotspotPulse
+        calc(3s * var(--reactor-pulse-speed))
+        ease-in-out
+        infinite;
+
+}
+
+.fusion-kernel {
+
+    filter:
+
+        drop-shadow(
+            0 0 var(--reactor-glow-xl)
+            var(--reactor-primary)
+        );
+
+}
+
+.kernel-glow {
+
+    filter:
+
+        blur(var(--reactor-blur-sm));
+
+    animation:
+
+        kernelGlow
+        calc(2.5s * var(--reactor-pulse-speed))
+        ease-in-out
+        infinite;
+
+}
+
+.core-centre {
+
+    filter:
+
+        drop-shadow(
+            0 0 var(--reactor-glow-xl)
+            var(--reactor-accent)
+        );
+
+}
+
+.injection-node {
+
+    fill: var(--reactor-accent);
+
+    filter:
+
+        drop-shadow(
+            0 0 var(--reactor-glow-md)
+            var(--reactor-accent)
+        );
+
+    animation:
+
+        injectorPulse
+        calc(2.2s * var(--reactor-pulse-speed))
+        ease-in-out
+        infinite;
+
+}
+
+.inner-plasma-ring {
+
+    fill: none;
+
+    stroke: var(--reactor-primary);
+
+    stroke-width: var(--reactor-stroke-sm);
+
+    opacity: .45;
+
+}
+
+/*==================================================
+    PULSE
+==================================================*/
+
+.pulse {
+
+    opacity: var(--reactor-core-opacity);
+
+}
+
+.pulse-ring {
+
+    fill: none;
+
+    stroke: var(--reactor-primary);
+
+    transform-origin: center;
+
+    transform-box: fill-box;
+
+}
+
+.pulse-primary {
+
+    filter:
+
+        drop-shadow(
+            0 0 var(--reactor-glow-lg)
+            var(--reactor-primary)
+        );
+
+    animation:
+
+        pressureWave
+        calc(4s * var(--reactor-pulse-speed))
+        linear
+        infinite;
+
+}
+
+.pulse-secondary {
+
+    animation:
+
+        pressureWave
+        calc(5.5s * var(--reactor-pulse-speed))
+        linear
+        infinite;
+
+}
+
+.pulse-tertiary {
+
+    animation:
+
+        pressureWave
+        calc(7s * var(--reactor-pulse-speed))
+        linear
+        infinite;
+
+}
+
+.ripple-path {
+
+    filter:
+
+        drop-shadow(
+            0 0 var(--reactor-glow-sm)
+            var(--reactor-secondary)
+        );
+
+}
+
+.compression-node {
+
+    fill: var(--reactor-accent);
+
+    filter:
+
+        drop-shadow(
+            0 0 var(--reactor-glow-sm)
+            var(--reactor-accent)
+        );
+
+    animation:
+
+        compressionPulse
+        calc(2.4s * var(--reactor-pulse-speed))
+        ease-in-out
+        infinite;
+
+}
+
+.shock-ring {
+
+    animation:
+
+        shockExpansion
+        calc(4.5s * var(--reactor-pulse-speed))
+        ease-in-out
+        infinite;
+
+}
+
+.core-breath {
+
+    filter:
+
+        blur(var(--reactor-blur-sm));
+
+    animation:
+
+        coreHeartbeat
+        calc(6s * var(--reactor-pulse-speed))
+        ease-in-out
+        infinite;
+
+}
+
+/*==================================================
+    ANIMATIONS
+==================================================*/
+
+@keyframes latticeRotate {
+
+    from { transform: rotate(0deg); }
+
+    to { transform: rotate(360deg); }
+
+}
+
+@keyframes coreBreathing {
+
+    0%,100% { transform: scale(var(--reactor-core-scale)); }
+
+    50% { transform: scale(calc(var(--reactor-core-scale) * 1.025)); }
+
+}
+
+@keyframes turbulenceDrift {
+
+    0%,100% { transform: rotate(0deg); }
+
+    50% { transform: rotate(2deg); }
+
+}
+
+@keyframes filamentOscillation {
+
+    0%,100% { opacity:.18; }
+
+    50% { opacity:.40; }
+
+}
+
+@keyframes hotspotPulse {
+
+    0%,100% {
+
+        transform:scale(1);
+
+        opacity:.15;
+
+    }
+
+    50% {
+
+        transform:scale(1.45);
+
+        opacity:.40;
+
+    }
+
+}
+
+@keyframes kernelGlow {
+
+    0%,100% { opacity:.45; }
+
+    50% { opacity:.9; }
+
+}
+
+@keyframes injectorPulse {
+
+    0%,100% { transform:scale(1); }
+
+    50% { transform:scale(1.35); }
+
+}
+
+@keyframes pressureWave {
+
+    0%,100% { transform:scale(.96); }
+
+    50% { transform:scale(var(--reactor-pulse-scale)); }
+
+}
+
+@keyframes compressionPulse {
+
+    0%,100% {
+
+        transform:scale(1);
+
+    }
+
+    50% {
+
+        transform:scale(1.4);
+
+    }
+
+}
+
+@keyframes shockExpansion {
+
+    0%,100% {
+
+        opacity:.12;
+
+    }
+
+    50% {
+
+        opacity:.40;
+
+    }
+
+}
+
+@keyframes coreHeartbeat {
+
+    0%,100% {
+
+        transform:scale(1);
+
+    }
+
+    40% {
+
+        transform:scale(1.08);
+
+    }
+
+    60% {
+
+        transform:scale(.98);
+
+    }
+
+}

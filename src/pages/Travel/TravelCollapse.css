@@ -1,0 +1,93 @@
+.travel-flight-management-header {
+  align-items: center;
+}
+
+.travel-collapse-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 13px;
+  border: 1px solid rgba(91, 219, 253, 0.3);
+  border-radius: 9px;
+  color: #dff9ff;
+  background: rgba(40, 153, 190, 0.12);
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.travel-collapse-toggle:hover {
+  border-color: rgba(91, 219, 253, 0.6);
+  background: rgba(40, 153, 190, 0.2);
+}
+
+.travel-collapse-toggle svg {
+  width: 17px;
+  height: 17px;
+}
+
+.travel-flight-management.is-collapsed > header {
+  margin-bottom: 0;
+}
+
+.travel-flight-management-body {
+  display: grid;
+  gap: 18px;
+}
+
+.travel-flight-management .travel-flights {
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(91, 219, 253, 0.12);
+  border-radius: 14px;
+  background: rgba(3, 15, 29, 0.24);
+}
+
+.travel-add-flight {
+  display: grid;
+  gap: 13px;
+  padding-top: 17px;
+  border-top: 1px solid rgba(91, 219, 253, 0.12);
+}
+
+.travel-add-flight-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.travel-add-flight-heading > svg {
+  width: 36px;
+  height: 36px;
+  padding: 9px;
+  border-radius: 11px;
+  color: #60dcfb;
+  background: rgba(61, 198, 238, 0.1);
+}
+
+.travel-add-flight-heading h3,
+.travel-add-flight-heading p {
+  margin: 0;
+}
+
+.travel-add-flight-heading h3 {
+  color: #edf9ff;
+  font-size: 16px;
+}
+
+.travel-add-flight-heading p {
+  margin-top: 3px;
+  color: #819cae;
+  font-size: 11px;
+}
+
+@media (max-width: 650px) {
+  .travel-flight-management-header {
+    align-items: flex-start;
+  }
+
+  .travel-collapse-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+}

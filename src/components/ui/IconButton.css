@@ -1,0 +1,57 @@
+.icon-button{
+
+    width:40px;
+
+    height:40px;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:transparent;
+
+    color:#9CB3C7;
+
+    cursor:pointer;
+
+    transition:.2s ease;
+
+}
+
+.icon-button:hover{
+
+    background:rgba(var(--sentinel-accent-rgb),.10);
+
+    color:#7EF5FF;
+
+}
+
+.icon-button.active{
+
+    background:rgba(var(--sentinel-accent-rgb),.14);
+
+    color:#7EF5FF;
+
+}
+
+.icon-button.danger:hover{
+
+    background:rgba(255,0,0,.10);
+
+    color:#FF7070;
+
+}
+
+.icon-button svg{
+
+    width:18px;
+
+    height:18px;
+
+}

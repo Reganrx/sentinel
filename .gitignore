@@ -11,6 +11,21 @@ node_modules
 dist
 dist-ssr
 *.local
+server/.env
+.test-data/
+.npm-audit-cache/
+.codex-*
+release/
+build/
+dist-electron/
+*-stage-*/
+*-staging/
+*.asar
+*.tgz
+cloudflare-relay/.wrangler/
+116
+2352
+2364
 
 # Editor directories and files
 .vscode/*

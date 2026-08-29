@@ -1,0 +1,213 @@
+.message-row{
+
+    width:100%;
+
+    max-width:980px;
+
+    display:flex;
+
+    animation:messageFade .35s ease;
+
+}
+
+.message{
+
+    width:100%;
+
+    display:flex;
+
+    gap:22px;
+
+    padding:22px 0;
+
+    border-bottom:1px solid rgba(255,255,255,.06);
+
+}
+
+.message-avatar{
+
+    width:48px;
+
+    height:48px;
+
+    flex-shrink:0;
+
+    border-radius:50%;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    background:rgba(255,255,255,.05);
+
+    color:#7EF5FF;
+
+    border:1px solid rgba(var(--sentinel-accent-rgb),.18);
+
+}
+
+.message-main{
+
+    flex:1;
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:14px;
+
+}
+
+.message-top{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:flex-start;
+
+}
+
+.message-top h4{
+
+    margin:0;
+
+    color:white;
+
+    font-size:17px;
+
+    font-weight:600;
+
+}
+
+.message-top span{
+
+    color:#7F95AA;
+
+    font-size:12px;
+
+}
+
+.message-tools{
+
+    display:flex;
+
+    gap:8px;
+
+    opacity:0;
+
+    transition:.25s;
+
+}
+
+.message:hover .message-tools{
+
+    opacity:1;
+
+}
+
+.message-tools button{
+
+    width:36px;
+
+    height:36px;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:transparent;
+
+    color:#8DA4B8;
+
+    cursor:pointer;
+
+    transition:.2s;
+
+}
+
+.message-tools button:hover{
+
+    background:rgba(var(--sentinel-accent-rgb),.12);
+
+    color:#7EF5FF;
+
+}
+
+.message-text{
+
+    color:#EDF3FA;
+
+    font-size:16px;
+
+    line-height:1.8;
+
+    white-space:pre-wrap;
+
+    word-break:break-word;
+
+}
+
+.generated-image-card{width:min(620px,100%);margin:2px 0 0;overflow:hidden;border:1px solid rgba(var(--sentinel-accent-rgb),.28);border-radius:20px;background:rgba(2,15,29,.78);box-shadow:0 20px 55px rgba(0,0,0,.28)}
+.generated-image-card img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+.generated-image-card figcaption{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 16px;color:#9db1c5;font-size:13px}
+.generated-image-card figcaption span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.generated-image-card a{display:inline-flex;align-items:center;gap:7px;flex:none;color:var(--sentinel-accent);text-decoration:none;font-weight:700}
+
+.message-row.user .message-avatar{
+
+    background:linear-gradient(
+
+        135deg,
+
+        var(--sentinel-accent),
+
+        #6EF6FF
+
+    );
+
+    color:#00141D;
+
+    border:none;
+
+}
+
+.message-row.user .message{
+
+    border-bottom:1px solid rgba(var(--sentinel-accent-rgb),.08);
+
+}
+
+.message-row.sentinel .message{
+
+    border-bottom:1px solid rgba(255,255,255,.05);
+
+}
+
+@keyframes messageFade{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(16px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}

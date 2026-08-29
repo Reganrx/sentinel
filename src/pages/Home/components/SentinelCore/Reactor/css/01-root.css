@@ -1,0 +1,171 @@
+/*==================================================
+    SENTINEL REACTOR V2
+    DESIGN SYSTEM
+==================================================*/
+
+:root {
+    --reactor-intensity: 1;
+
+    /*==================================================
+        COLOURS
+    ==================================================*/
+
+    --reactor-primary: #62E8FF;
+    --reactor-secondary: #C7FBFF;
+    --reactor-accent: #FFFFFF;
+
+    --reactor-warning: #FF9B4A;
+    --reactor-danger: #FF4D4D;
+
+    --reactor-background: #02060A;
+
+
+    /*==================================================
+        BRIGHTNESS
+    ==================================================*/
+
+    --reactor-core-brightness: 1;
+
+    --reactor-plasma-brightness: 1;
+
+    --reactor-halo-brightness: 1;
+
+    --reactor-housing-brightness: 1;
+
+    --reactor-glass-brightness: 1;
+
+    --reactor-glow-brightness: 1;
+
+
+    /*==================================================
+        OPACITY
+    ==================================================*/
+
+    --reactor-core-opacity: 1;
+
+    --reactor-plasma-opacity: .90;
+
+    --reactor-halo-opacity: .80;
+
+    --reactor-glass-opacity: .45;
+
+    --reactor-glow-opacity: .80;
+
+    --reactor-hud-opacity: .35;
+
+
+    /*==================================================
+        SCALE
+    ==================================================*/
+
+    --reactor-core-scale: 1;
+
+    --reactor-halo-scale: 1;
+
+    --reactor-pulse-scale: 1;
+
+
+    /*==================================================
+        BLUR
+    ==================================================*/
+
+    --reactor-blur-xs: .5px;
+
+    --reactor-blur-sm: 1px;
+
+    --reactor-blur-md: 3px;
+
+    --reactor-blur-lg: 6px;
+
+    --reactor-blur-xl: 10px;
+
+
+    /*==================================================
+        GLOW
+    ==================================================*/
+
+    --reactor-glow-xs: 2px;
+
+    --reactor-glow-sm: 4px;
+
+    --reactor-glow-md: 8px;
+
+    --reactor-glow-lg: 16px;
+
+    --reactor-glow-xl: 24px;
+
+    --reactor-glow-xxl: 36px;
+
+
+    /*==================================================
+        STROKES
+    ==================================================*/
+
+    --reactor-stroke-xs: .5;
+
+    --reactor-stroke-sm: .8;
+
+    --reactor-stroke-md: 1;
+
+    --reactor-stroke-lg: 2;
+
+    --reactor-stroke-xl: 3;
+
+
+    /*==================================================
+        ANIMATION SPEED MULTIPLIERS
+    ==================================================*/
+
+    --reactor-rotation-speed: 1;
+
+    --reactor-pulse-speed: 1;
+
+    --reactor-flow-speed: 1;
+
+    --reactor-plasma-speed: 1;
+
+    --reactor-scan-speed: 1;
+
+    --reactor-glow-speed: 1;
+
+    --reactor-transition-speed: 1;
+
+
+    /*==================================================
+        TIMING
+    ==================================================*/
+
+    --reactor-transition-fast: .18s;
+
+    --reactor-transition-normal: .35s;
+
+    --reactor-transition-slow: .60s;
+
+    --reactor-transition-slower: 1s;
+
+
+    /*==================================================
+        EASING
+    ==================================================*/
+
+    --reactor-ease-standard: cubic-bezier(.40,0,.20,1);
+
+    --reactor-ease-smooth: cubic-bezier(.22,.61,.36,1);
+
+    --reactor-ease-bounce: cubic-bezier(.34,1.56,.64,1);
+
+
+    /*==================================================
+        SATURATION
+    ==================================================*/
+
+    --reactor-saturation: 1;
+
+
+    /*==================================================
+        HUE
+    ==================================================*/
+
+    --reactor-hue: 0deg;
+
+}

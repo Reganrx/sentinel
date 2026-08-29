@@ -1,0 +1,331 @@
+.alexa-relay-editor {
+  grid-column: 1/-1;
+  margin: 0;
+}
+.setup-core > .alexa-relay-editor {
+  display:grid;
+  grid-template-columns:40px minmax(0,1fr) minmax(220px,.65fr);
+  align-items:center;
+  gap:13px;
+  padding: 14px 0;
+  border-top:1px solid rgba(255,255,255,.055);
+}
+.setup-cloudflare-service>svg{display:grid;place-items:center;width:38px;height:38px;padding:9px;border-radius:10px;color:#60ddff;background:rgba(70,204,243,.1)}
+.setup-cloudflare-copy strong,.setup-cloudflare-copy span,.setup-cloudflare-copy small{display:block}
+.setup-cloudflare-copy span{margin-top:3px;color:#879fb1;font-size:12px}
+.setup-cloudflare-copy small{display:flex;align-items:center;gap:4px;margin-top:5px;color:#efbc78;font-size:10px;text-transform:uppercase}
+.setup-cloudflare-copy small.connected{color:#77e4aa}.setup-cloudflare-copy small svg{width:11px}
+.setup-cloudflare-service.is-open{padding-bottom:0}
+.setup-cloudflare-service.is-open>.alexa-relay-form{margin-bottom:14px}
+.setup-cloudflare-service.is-open .relay-chevron{transform:rotate(180deg)}
+.relay-chevron{transition:transform .2s}
+.setup-cloudflare-service>.alexa-relay-form{grid-column:1/-1}
+.setup-cloudflare-service>.alexa-relay-toggle{justify-self:stretch}
+.setup-cloudflare-service>.alexa-relay-toggle>svg{width:15px;height:15px;padding:0;border-radius:0;background:transparent}
+.setup-cloudflare-service>.alexa-relay-toggle .relay-chevron{margin-left:auto;width:14px}
+.setup-cloudflare-service>.alexa-relay-toggle{min-height:42px}
+.setup-cloudflare-service>.alexa-relay-toggle:hover{border-color:rgba(96,218,252,.38);background:rgba(45,183,222,.12)}
+.setup-cloudflare-service>.alexa-relay-toggle:focus-visible{outline:2px solid rgba(96,218,252,.45);outline-offset:2px}
+.setup-cloudflare-service>.alexa-relay-toggle{
+  color:#bdeefa;
+}
+.alexa-relay-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border: 1px solid rgba(96, 218, 252, 0.2);
+  border-radius: 9px;
+  color: #bdeefa;
+  background: rgba(45, 183, 222, 0.08);
+  cursor: pointer;
+}
+.alexa-relay-toggle svg {
+  width: 15px;
+}
+.alexa-relay-toggle span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  color: #e7b875;
+  font-size: 10px;
+}
+.alexa-relay-toggle span.connected {
+  color: #7de8ae;
+}
+.alexa-relay-toggle span svg {
+  width: 11px;
+}
+.alexa-relay-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 11px;
+  margin-top: 11px;
+  padding: 14px;
+  border: 1px solid rgba(93, 216, 251, 0.14);
+  border-radius: 12px;
+  background: rgba(2, 13, 25, 0.43);
+}
+.alexa-relay-form > p {
+  grid-column: 1/-1;
+  margin: 0;
+  color: #8ea7b8;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.alexa-relay-form label {
+  display: grid;
+  gap: 6px;
+  color: #a5bbc9;
+  font-size: 11px;
+}
+.alexa-relay-form input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 11px;
+  border: 1px solid rgba(101, 215, 250, 0.18);
+  border-radius: 9px;
+  outline: 0;
+  color: #effaff;
+  background: #061727;
+}
+.alexa-relay-form label > div {
+  display: flex;
+}
+.alexa-relay-form label > div input {
+  border-radius: 9px 0 0 9px;
+}
+.alexa-relay-form label > div button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  border: 1px solid rgba(101, 215, 250, 0.18);
+  border-left: 0;
+  border-radius: 0 9px 9px 0;
+  color: #68dcfa;
+  background: #0b273b;
+  cursor: pointer;
+}
+.alexa-relay-form label > div button svg {
+  width: 16px;
+}
+.alexa-relay-form > .settings-button {
+  grid-column: 1/-1;
+  justify-self: start;
+}
+.relay-secret {
+  grid-column: 1/-1;
+}
+.relay-pairing {
+  grid-column: 1/-1;
+  display: grid;
+  gap: 5px;
+  padding: 16px;
+  border: 1px solid rgba(84, 230, 158, 0.25);
+  border-radius: 12px;
+  background: rgba(84, 230, 158, 0.07);
+}
+.relay-pairing small {
+  color: #75e5a8;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+}
+.relay-pairing strong {
+  color: #ecfff5;
+  font:
+    800 28px ui-monospace,
+    Consolas,
+    monospace;
+  letter-spacing: 0.22em;
+}
+.relay-pairing span {
+  color: #a8c8b7;
+  font-size: 11px;
+}
+.relay-legacy {
+  grid-column: 1/-1;
+  color: #91a9ba;
+  font-size: 11px;
+}
+.relay-profile-manager {
+  grid-column: 1/-1;
+  display: grid;
+  gap: 12px;
+  margin-top: 5px;
+  padding: 16px;
+  border: 1px solid rgba(96, 218, 252, 0.16);
+  border-radius: 13px;
+  background: rgba(6, 23, 39, 0.62);
+}
+.relay-profile-manager > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.relay-profile-manager > header strong,
+.relay-profile-manager > header small {
+  display: block;
+}
+.relay-profile-manager > header strong {
+  color: #edfaff;
+}
+.relay-profile-manager > header small {
+  margin-top: 4px;
+  color: #819cab;
+  font-size: 10px;
+}
+.relay-profile-manager > header .settings-button {
+  flex: none;
+  margin: 0;
+}
+.relay-profile-locked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px;
+  border-radius: 9px;
+  color: #d1b681;
+  background: rgba(212, 166, 74, 0.08);
+  font-size: 11px;
+}
+.relay-profile-secret-needed{display:flex;align-items:center;gap:8px;margin:0;padding:10px;border:1px solid rgba(96,218,252,.13);border-radius:9px;color:#9fc6d4;background:rgba(64,196,235,.055);font-size:11px;line-height:1.45}.relay-profile-secret-needed svg{flex:none;width:15px;color:#60dcff}
+.relay-profile-locked svg {
+  width: 15px;
+}
+.relay-profile-list {
+  display: grid;
+  gap: 8px;
+}
+.relay-profile-list article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid rgba(96, 218, 252, 0.11);
+  border-radius: 10px;
+  background: rgba(2, 13, 25, 0.46);
+}
+.relay-profile-list article strong,
+.relay-profile-list article small,
+.relay-profile-list article code {
+  display: block;
+}
+.relay-profile-list article small {
+  margin-top: 3px;
+  color: #829baa;
+  font-size: 10px;
+}
+.relay-profile-list article code {
+  margin-top: 5px;
+  color: #5d8294;
+  font-size: 9px;
+}
+.relay-profile-delete {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 118, 104, 0.24);
+  border-radius: 8px;
+  color: #ffaaa0;
+  background: rgba(255, 91, 75, 0.07);
+  cursor: pointer;
+}
+.relay-profile-delete svg {
+  width: 14px;
+}
+.relay-profile-delete:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.relay-legacy summary {
+  cursor: pointer;
+  color: #a9dfec;
+  font-weight: 700;
+}
+.relay-legacy p {
+  margin: 10px 0;
+}
+.relay-legacy .settings-button {
+  margin: 0;
+}
+.relay-confirmation-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 8, 18, 0.76);
+  backdrop-filter: blur(8px);
+}
+.relay-confirmation-dialog {
+  display: grid;
+  justify-items: center;
+  width: min(440px, 100%);
+  padding: 30px;
+  border: 1px solid rgba(84, 230, 158, 0.34);
+  border-radius: 20px;
+  color: #edfaff;
+  background: linear-gradient(145deg, #0d2c3c, #061422);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.55);
+  text-align: center;
+}
+.relay-confirmation-icon {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 15px;
+  border: 1px solid rgba(84, 230, 158, 0.4);
+  border-radius: 50%;
+  color: #091d18;
+  background: #54e69e;
+  box-shadow: 0 0 28px rgba(84, 230, 158, 0.24);
+}
+.relay-confirmation-icon svg {
+  width: 28px;
+  height: 28px;
+}
+.relay-confirmation-dialog > small {
+  color: #70e7a8;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+.relay-confirmation-dialog h3 {
+  margin: 8px 0 0;
+  font-size: 25px;
+}
+.relay-confirmation-dialog p {
+  margin: 12px 0 22px;
+  color: #99b3c1;
+  line-height: 1.55;
+}
+.relay-confirmation-dialog .settings-button {
+  justify-self: center;
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .alexa-relay-editor {
+    margin-left: 0;
+  }
+  .alexa-relay-form {
+    grid-template-columns: 1fr;
+  }
+  .setup-core > .alexa-relay-editor{grid-template-columns:38px 1fr}.setup-cloudflare-service>.alexa-relay-toggle,.setup-cloudflare-service>.alexa-relay-form{grid-column:1/-1}
+  .alexa-relay-form > p,
+  .alexa-relay-form > .settings-button {
+    grid-column: auto;
+  }
+  .relay-profile-manager > header,
+  .relay-profile-list article {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

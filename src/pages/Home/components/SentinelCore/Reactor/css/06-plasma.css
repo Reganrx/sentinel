@@ -1,0 +1,376 @@
+/*==================================================
+    SENTINEL REACTOR V3
+    PLASMA SYSTEM
+==================================================*/
+
+/*==================================================
+    ROOT
+==================================================*/
+
+.plasma {
+
+    isolation: isolate;
+
+    pointer-events: none;
+
+    overflow: visible;
+
+    opacity: calc(
+        var(--reactor-plasma-opacity) *
+        var(--reactor-intensity)
+    );
+
+    filter:
+
+        brightness(
+            calc(
+                var(--reactor-plasma-brightness) *
+                var(--reactor-intensity)
+            )
+        )
+
+        saturate(var(--reactor-saturation))
+
+        hue-rotate(var(--reactor-hue));
+
+    transition:
+
+        opacity
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        filter
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard);
+
+}
+
+.plasma * {
+
+    vector-effect: non-scaling-stroke;
+
+    transform-origin: center;
+
+    transform-box: fill-box;
+
+}
+
+/*==================================================
+    PLASMA FILAMENTS
+==================================================*/
+
+.plasma-filament {
+
+    fill: none;
+
+    stroke: var(--reactor-primary);
+
+    stroke-width: var(--reactor-stroke-xs);
+
+    stroke-linecap: round;
+
+    opacity: calc(
+        .80 *
+        var(--reactor-intensity)
+    );
+
+    filter:
+
+        drop-shadow(
+            0 0
+            var(--reactor-glow-md)
+            var(--reactor-primary)
+        );
+
+    animation:
+
+        filamentFlow
+        calc(
+            4s *
+            var(--reactor-flow-speed)
+        )
+        linear
+        infinite;
+
+}
+
+.plasma-filament.secondary {
+
+    stroke: var(--reactor-secondary);
+
+}
+
+/*==================================================
+    PLASMA STREAMS
+==================================================*/
+
+.plasma-stream {
+
+    fill: none;
+
+    stroke: var(--reactor-secondary);
+
+    stroke-width: var(--reactor-stroke-sm);
+
+    stroke-linecap: round;
+
+    stroke-dasharray: 10 16;
+
+    opacity: calc(
+        .70 *
+        var(--reactor-intensity)
+    );
+
+    animation:
+
+        plasmaStream
+        calc(
+            3s *
+            var(--reactor-flow-speed)
+        )
+        linear
+        infinite;
+
+}
+/*==================================================
+    ION PARTICLES
+==================================================*/
+
+.ion-particle {
+
+    fill: var(--reactor-secondary);
+
+    opacity: calc(
+        .80 *
+        var(--reactor-intensity)
+    );
+
+    transform-origin: center;
+
+    transform-box: fill-box;
+
+    filter:
+
+        drop-shadow(
+            0 0
+            var(--reactor-glow-md)
+            var(--reactor-secondary)
+        );
+
+    animation:
+
+        ionPulse
+        calc(
+            1.8s *
+            var(--reactor-glow-speed)
+        )
+        ease-in-out
+        infinite;
+
+}
+
+.ion-particle.primary {
+
+    fill: var(--reactor-primary);
+
+}
+
+.ion-particle.secondary {
+
+    fill: var(--reactor-secondary);
+
+}
+
+/*==================================================
+    MICRO ARCS
+==================================================*/
+
+.micro-arc {
+
+    fill: none;
+
+    stroke: var(--reactor-primary);
+
+    stroke-width: var(--reactor-stroke-xs);
+
+    stroke-linecap: round;
+
+    opacity: calc(
+        .45 *
+        var(--reactor-intensity)
+    );
+
+    filter:
+
+        drop-shadow(
+            0 0
+            var(--reactor-glow-sm)
+            var(--reactor-primary)
+        );
+
+    animation:
+
+        arcFlicker
+        calc(
+            .35s *
+            var(--reactor-flicker-speed)
+        )
+        linear
+        infinite;
+
+}
+
+.micro-arc.secondary {
+
+    stroke: var(--reactor-secondary);
+
+}
+/*==================================================
+    DISTORTION
+==================================================*/
+
+.plasma-distortion {
+
+    opacity: calc(
+        .18 *
+        var(--reactor-intensity)
+    );
+
+    mix-blend-mode: screen;
+
+    filter:
+
+        blur(
+            var(--reactor-blur-md)
+        )
+
+        brightness(
+            calc(
+                var(--reactor-glow-brightness) *
+                var(--reactor-intensity)
+            )
+        );
+
+    transition:
+
+        opacity
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        filter
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard);
+
+}
+
+.plasma-distortion.secondary {
+
+    opacity: calc(
+        .10 *
+        var(--reactor-intensity)
+    );
+
+}
+
+/*==================================================
+    ANIMATIONS
+==================================================*/
+
+@keyframes filamentFlow {
+
+    from {
+
+        stroke-dashoffset: 0;
+
+    }
+
+    to {
+
+        stroke-dashoffset: -36;
+
+    }
+
+}
+
+@keyframes plasmaStream {
+
+    from {
+
+        stroke-dashoffset: 0;
+
+    }
+
+    to {
+
+        stroke-dashoffset: -52;
+
+    }
+
+}
+
+@keyframes ionPulse {
+
+    0%,
+    100% {
+
+        opacity: .45;
+
+        transform: scale(.85);
+
+    }
+
+    50% {
+
+        opacity: 1;
+
+        transform: scale(1.30);
+
+    }
+
+}
+
+@keyframes arcFlicker {
+
+    0% {
+
+        opacity: .10;
+
+    }
+
+    15% {
+
+        opacity: .90;
+
+    }
+
+    28% {
+
+        opacity: .25;
+
+    }
+
+    42% {
+
+        opacity: 1;
+
+    }
+
+    58% {
+
+        opacity: .35;
+
+    }
+
+    72% {
+
+        opacity: .85;
+
+    }
+
+    100% {
+
+        opacity: .15;
+
+    }
+
+}

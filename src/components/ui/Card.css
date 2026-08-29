@@ -1,0 +1,19 @@
+.ui-card{
+
+    background:rgba(14,18,28,.72);
+
+    border:1px solid rgba(255,255,255,.05);
+
+    border-radius:20px;
+
+    backdrop-filter:blur(18px);
+
+    transition:.25s;
+
+}
+
+.ui-card:hover{
+
+    border-color:rgba(var(--sentinel-accent-rgb),.10);
+
+}

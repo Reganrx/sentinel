@@ -1,15 +1,32 @@
 // @see - https://www.electron.build/configuration/configuration
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "YourAppID",
+  "appId": "com.sentinel.personal",
   "asar": true,
-  "productName": "YourAppName",
+  "productName": "Sentinel Personal",
   "directories": {
     "output": "release/${version}"
   },
   "files": [
     "dist",
     "dist-electron"
+  ],
+  "extraResources": [
+    {
+      "from": "server",
+      "to": "server",
+      "filter": [
+        "**/*",
+        "!**/.env",
+        "!**/.gitignore",
+        "!**/node_modules/.cache/**"
+      ]
+    },
+    {
+      "from": "node_modules/@openai/codex-win32-arm64/vendor/aarch64-pc-windows-msvc",
+      "to": "codex/aarch64-pc-windows-msvc",
+      "filter": ["**/*"]
+    }
   ],
   "mac": {
     "target": [
@@ -22,7 +39,7 @@
       {
         "target": "nsis",
         "arch": [
-          "x64"
+          "arm64"
         ]
       }
     ],

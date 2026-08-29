@@ -1,0 +1,123 @@
+.conversation-header{
+
+    position:relative;
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    padding:18px 28px;
+
+    border-bottom:1px solid rgba(255,255,255,.06);
+
+    background:rgba(10,15,24,.65);
+
+    backdrop-filter:blur(18px);
+
+    flex-shrink:0;
+
+    flex:1;
+
+    min-width:0;
+
+}
+
+.conversation-info{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:4px;
+
+}
+
+.conversation-info h2{
+
+    margin:0;
+
+    font-size:24px;
+
+    font-weight:700;
+
+    color:#FFFFFF;
+
+}
+
+.conversation-info p{
+
+    margin:0;
+
+    font-size:13px;
+
+    color:#8EA5B8;
+
+}
+
+.conversation-actions{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:10px;
+
+}
+
+.conversation-actions button{
+
+    width:42px;
+
+    height:42px;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:transparent;
+
+    color:#9DB4C7;
+
+    cursor:pointer;
+
+    transition:.25s;
+
+}
+
+.conversation-actions button:hover{
+
+    background:rgba(var(--sentinel-accent-rgb),.12);
+
+    color:#7EF5FF;
+
+}
+
+.conversation-actions button:active{
+
+    transform:scale(.95);
+
+}
+
+.conversation-menu{
+    position:relative;
+    display:flex;
+    align-items:center;
+    margin-left:auto;
+}
+
+.conversation-menu .dropdown-menu{
+    top:calc(100% + 10px);
+    right:0;
+    left:auto;
+}
+
+.conversation-toast { position: absolute; right: 76px; top: 20px; display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 14px; border: 1px solid rgba(84,230,158,.3); border-radius: 10px; color: #baf4d0; background: rgba(13,37,37,.96); box-shadow: 0 12px 28px rgba(0,0,0,.25); font-size: 13px; z-index: 3; }.conversation-toast button { padding: 0; border: 0; color: #9ed7b6; background: transparent; font-size: 19px; cursor: pointer; }
+.conversation-dialog-backdrop { position: fixed; inset: 0; display: grid; place-items: center; padding: 22px; background: rgba(2,8,18,.68); backdrop-filter: blur(5px); z-index: 2000; }.conversation-dialog { width: min(440px, 100%); padding: 26px; border: 1px solid rgba(100,216,255,.22); border-radius: 18px; color: #ecf8ff; background: linear-gradient(145deg, #15243a, #0a1322); box-shadow: 0 28px 80px rgba(0,0,0,.55); }.conversation-dialog h3 { margin: 0 0 8px; font-size: 20px; }.conversation-dialog p { margin: 0 0 20px; color: #9aafc2; line-height: 1.5; }.conversation-dialog input { width: 100%; box-sizing: border-box; padding: 12px 13px; border: 1px solid rgba(104,216,255,.26); border-radius: 10px; outline: none; color: white; background: rgba(3,10,20,.6); }.conversation-dialog input:focus { border-color: #5bdbff; box-shadow: 0 0 0 3px rgba(91,219,255,.11); }.conversation-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }.conversation-dialog-actions button { padding: 10px 13px; border: 1px solid rgba(255,255,255,.1); border-radius: 9px; color: #c8d7e5; background: rgba(255,255,255,.045); cursor: pointer; }.conversation-dialog-actions .conversation-dialog-primary { border-color: #45d6fa; color: #06202a; font-weight: 700; background: #55dafa; }.conversation-dialog-actions .conversation-dialog-danger { border-color: rgba(255,109,99,.45); color: #ffe1dc; background: rgba(232,71,59,.17); }

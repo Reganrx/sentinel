@@ -1,0 +1,70 @@
+/* ==========================================
+   SENTINEL AI CORE
+========================================== */
+
+.ai-core{
+    display:block;
+    pointer-events:none;
+}
+
+.ai-core-card{
+
+    width:220px;
+    height:220px;
+
+    display:block;
+
+    margin:auto;
+
+}
+
+.ai-core-fullscreen{
+
+    position:absolute;
+
+    inset:0;
+
+    width:100%;
+    height:100%;
+
+    opacity:.18;
+
+    z-index:0;
+
+}
+
+/* Nice smooth rendering */
+
+.ai-core canvas{
+
+    image-rendering:auto;
+
+}
+
+/* Fade in when loaded */
+
+.ai-core{
+
+    animation:coreFade 1.2s ease;
+
+}
+
+@keyframes coreFade{
+
+    from{
+
+        opacity:0;
+
+        transform:scale(.9);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:scale(1);
+
+    }
+
+}

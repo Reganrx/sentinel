@@ -1,0 +1,59 @@
+.widget-header {
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+}
+
+.widget-title {
+
+    display:flex;
+
+    align-items:center;
+
+    gap:14px;
+
+}
+
+.widget-icon {
+
+    width:42px;
+
+    height:42px;
+
+    border-radius:12px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    background:rgba(255,255,255,.05);
+
+    font-size:20px;
+
+}
+
+.widget-title h2 {
+
+    margin:0;
+
+    color:white;
+
+    font-size:18px;
+
+}
+
+.widget-title p {
+
+    margin:4px 0 0;
+
+    color:rgba(255,255,255,.65);
+
+    font-size:13px;
+
+}
