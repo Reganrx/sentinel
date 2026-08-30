@@ -47,14 +47,15 @@ function status(el,s,w=false){const p=q(".sas-status",el);p.textContent=s;p.clas
     const page=tabs.closest("main")||tabs.parentElement?.parentElement||document;
     replaceText(page);
     document.querySelectorAll(".workshop-heading").forEach(heading=>{
-      heading.classList.add("cnc-heading-enhanced");
+      if(!heading.classList.contains("cnc-heading-enhanced")) heading.classList.add("cnc-heading-enhanced");
       let label=heading.querySelector(".cnc-collapse-label");
       if(!label){
         label=document.createElement("span");
         label.className="cnc-collapse-label";
         (heading.firstElementChild||heading).appendChild(label);
       }
-      label.textContent=heading.closest(".workshop-setup")?.classList.contains("open")?"Collapse setup":"Expand setup";
+      const text=heading.closest(".workshop-setup")?.classList.contains("open")?"Collapse setup":"Expand setup";
+      if(label.textContent!==text) label.textContent=text;
     });
     document.querySelectorAll(".save-workshop").forEach(button=>{
       if(button.dataset.cncSaveEnhanced)return;

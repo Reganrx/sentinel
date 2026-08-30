@@ -96,7 +96,7 @@ function LiveCamera({
   );
 }
 
-export default function QuickChatBar() {
+export default function QuickChatBar({ host }: { host: HTMLDivElement | null }) {
   const [message, setMessage] = useState("");
   const [reply, setReply] = useState("");
   const [loading, setLoading] = useState(false);
@@ -632,14 +632,14 @@ export default function QuickChatBar() {
     : voiceState === "transcribing" ? "Transcribing voice command…"
       : voiceState === "executing" ? "Executing verified command…" : "Voice command";
   return <>
-    {view === "home" && createPortal(<div className="quick-command-layer"><div className="quick-command-shell">
+    {view === "home" && host && createPortal(<div className="quick-command-shell">
       <section className="quick-chat">
         <form onSubmit={submit} className="quick-chat-form"><div className="quick-chat-icon"><MessageSquareText size={20} /></div><input value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Ask Sentinel anything…" aria-label="Quick message to Sentinel" /><button type="submit" disabled={!message.trim() || loading} aria-label="Send quick message">{loading ? <LoaderCircle className="quick-chat-spin" size={20} /> : <ArrowUp size={20} />}</button></form>
         {(reply || loading || voiceState !== "idle") && <div className={`quick-chat-reply ${voiceState === "listening" ? "is-listening" : ""}`}>{voiceState === "listening" ? <Mic size={18} /> : <Bot size={18} />}<p>{voiceState !== "idle" ? voiceLabel : loading ? "Sentinel is processing your request…" : reply}</p>{!loading && voiceState === "idle" && <button onClick={() => setReply("")} aria-label="Close reply"><X size={17} /></button>}</div>}
       </section>
       <button className={`home-voice-button ${voiceState !== "idle" ? `is-${voiceState}` : ""}`} onClick={() => void toggleVoice()} disabled={voiceState === "transcribing" || voiceState === "executing"} aria-label={voiceLabel} title={voiceLabel}>{voiceState === "transcribing" || voiceState === "executing" ? <LoaderCircle className="quick-chat-spin" /> : voiceState === "listening" ? <MicOff /> : <Mic />}</button>
       <button className={`home-realtime-button ${realtimeOpen ? `is-${realtimeState}` : ""}`} onClick={() => realtimeOpen ? setRealtimePanelVisible((visible) => !visible) : void startRealtime()} aria-label={realtimeOpen ? "Show or minimise live conversation" : "Start live conversation"} title="Live conversation"><AudioLines /></button>
-    </div></div>, document.body)}
+    </div>, host)}
     {camera && <LiveCamera device={camera} stream={cameraStream} status={cameraStatus} muted={cameraMuted} onMuted={() => setCameraMuted((value) => !value)} onRetry={() => void openCamera(camera)} onClose={() => void closeCamera()} />}
     {realtimeOpen && realtimePanelVisible && createPortal(<div className="home-realtime-backdrop">
       <section className="home-realtime-panel">

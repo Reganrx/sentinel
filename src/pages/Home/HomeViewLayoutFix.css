@@ -4,6 +4,29 @@
   }
 
   .home-context-strip {
-    transform: translateY(-12px);
+    transform: none;
   }
+}
+
+/* Each footer group occupies its own row, including growing command replies. */
+.home-view .home-controls {
+  row-gap: 14px;
+  padding-bottom: 12px;
+}
+
+#sentinel-quick-chat-host {
+  min-width: 0;
+}
+
+#sentinel-quick-chat-host .quick-command-shell {
+  width: 100%;
+  margin: 0;
+}
+
+#sentinel-quick-chat-host .quick-chat-form {
+  box-sizing: border-box;
+}
+
+.home-view .home-actions {
+  align-self: start;
 }

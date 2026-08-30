@@ -6,11 +6,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && npm --prefix server run build && vite build && electron-builder",
+    "build": "tsc && npm --prefix server run build && vite build && node tests/run-navigation.cjs && electron-builder",
     "build:personal": "npm run build",
     "build:base": "set VITE_SENTINEL_EDITION=base&& set VITE_SENTINEL_API_URL=http://localhost:3002&& tsc && npm --prefix server run build && vite build && electron-builder --config electron-builder.base.json5",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test": "npm --prefix server run build && node --test tests/*.test.mjs",
+    "test:navigation": "vite build && node tests/run-navigation.cjs",
     "check": "npm run lint && tsc --noEmit && npm --prefix server run typecheck && npm test",
     "preview": "vite preview"
   },

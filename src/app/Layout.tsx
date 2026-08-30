@@ -37,6 +37,7 @@ export default function Layout() {
   } = useNavigation();
 
   const [focusMode, setFocusMode] = useState(false);
+  const [quickChatHost, setQuickChatHost] = useState<HTMLDivElement | null>(null);
 
   function renderView() {
 
@@ -44,7 +45,7 @@ export default function Layout() {
 
       case "home":
 
-        return <HomeView />;
+        return <HomeView onQuickChatHost={setQuickChatHost} />;
 
       case "chat":
 
@@ -52,11 +53,11 @@ export default function Layout() {
 
       case "concierge":
 
-        return import.meta.env.VITE_SENTINEL_EDITION === "base" ? <HomeView /> : <ConciergeView />;
+        return import.meta.env.VITE_SENTINEL_EDITION === "base" ? <HomeView onQuickChatHost={setQuickChatHost} /> : <ConciergeView />;
 
       case "design":
 
-        return import.meta.env.VITE_SENTINEL_EDITION === "base" ? <HomeView /> : <DesignView />;
+        return import.meta.env.VITE_SENTINEL_EDITION === "base" ? <HomeView onQuickChatHost={setQuickChatHost} /> : <DesignView />;
 
       case "weather":
 
@@ -96,7 +97,7 @@ export default function Layout() {
 
       default:
 
-        return <HomeView />;
+        return <HomeView onQuickChatHost={setQuickChatHost} />;
 
     }
 
@@ -125,7 +126,7 @@ export default function Layout() {
             </Suspense>
           </PageErrorBoundary>
         </div>
-        <QuickChatBar />
+        <QuickChatBar host={quickChatHost} />
 
       </main>
 

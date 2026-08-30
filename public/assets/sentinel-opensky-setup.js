@@ -31,7 +31,8 @@
     if (!setup) return;
     const counter = [...setup.querySelectorAll("span")].find(element => /^\d+\/\d+ core services$/i.test((element.textContent || "").trim()));
     if (!counter) return;
-    if (syncedCoreCount !== null) counter.textContent = `${syncedCoreCount}/6 core services`;
+    const label = `${syncedCoreCount}/6 core services`;
+    if (syncedCoreCount !== null && counter.textContent !== label) counter.textContent = label;
     refreshCoreCount();
   }
   function nestVisiblePages() {
@@ -52,7 +53,7 @@
     if (content) {
       if (visiblePages.parentElement !== content) content.appendChild(visiblePages);
       visiblePages.style.display = "";
-      visiblePages.classList.add("page-visibility-card--nested");
+      if (!visiblePages.classList.contains("page-visibility-card--nested")) visiblePages.classList.add("page-visibility-card--nested");
     } else {
       visiblePages.style.display = "none";
     }

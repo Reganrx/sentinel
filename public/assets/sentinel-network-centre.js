@@ -15,7 +15,8 @@
       if ((element.textContent || "").trim() === "NETWORK INVENTORY") element.textContent = "NETWORK INTELLIGENCE";
     });
     const heading = document.querySelector(".scanner-heading span");
-    if (heading) heading.textContent = "Understand your connection, devices, performance and local network security.";
+    const description = "Understand your connection, devices, performance and local network security.";
+    if (heading && heading.textContent !== description) heading.textContent = description;
   }
   async function scan() {
     const token = sessionStorage.getItem("sentinel-developer-token") || "";
@@ -92,5 +93,12 @@
     tabs.querySelectorAll("button").forEach(button => button.addEventListener("click", () => activate(button.dataset.tab)));
     activate("overview");
   }
-  new MutationObserver(enhance).observe(document.documentElement, { childList: true, subtree: true }); setInterval(enhance, 1000); enhance();
+  let queued = false;
+  function schedule() {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; enhance(); });
+  }
+  new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
+  setInterval(schedule, 1000); schedule();
 })();

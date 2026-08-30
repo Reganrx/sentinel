@@ -9,7 +9,7 @@ import HomeActions from "./components/HomeActions/HomeActions";
 import { Activity, CloudSun, MapPin, Radio, ShieldCheck, Wifi, Zap } from "lucide-react";
 import useWorld from "../../hooks/useWorld";
 
-export default function HomeView() {
+export default function HomeView({ onQuickChatHost }: { onQuickChatHost: (element: HTMLDivElement | null) => void }) {
 
   const { world, loading } = useWorld();
   const hour = new Date().getHours();
@@ -71,7 +71,7 @@ export default function HomeView() {
             <span><ShieldCheck size={13} /><b>SHIELD</b> Protected</span>
           </div>
           <div className="home-controls-label"><span>QUICK COMMAND</span><i /></div>
-          <div id="sentinel-quick-chat-host" />
+          <div id="sentinel-quick-chat-host" ref={onQuickChatHost} />
           <HomeActions world={world} loading={loading} />
         </div>
 
