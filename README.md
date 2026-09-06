@@ -11,8 +11,8 @@ Windows; Xcode Cloud performs compilation, Apple signing and TestFlight delivery
 4. Xcode Cloud verifies the project with `ci_scripts/ci_post_clone.sh`, archives the shared
    `SentinelBase` scheme and sends the build to TestFlight.
 
-The current source setting is **1.2.1 (8)** and Xcode Cloud successfully uploaded build 9.
-The next TestFlight upload must use build 10 or higher. The project uses
+The current source setting is **1.2.1 (10)** and Xcode Cloud previously uploaded build 9.
+Every later TestFlight upload must increment the project build number. The project uses
 automatic signing for Apple team `9G2H3DAXFZ`, bundle ID `uk.co.sentinel.base`, and the
 pinned `https://github.com/stasel/WebRTC.git` package at exact version `152.0.0`.
 Do not restore versions 151.0.0 or 151.0.1: their referenced binary artifact is unavailable.
