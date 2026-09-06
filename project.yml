@@ -5,8 +5,8 @@ options:
     iOS: "17.0"
 packages:
   WebRTC:
-    url: https://github.com/Reganrx/WebRTC.git
-    exactVersion: 151.0.0
+    url: https://github.com/stasel/WebRTC.git
+    exactVersion: 152.0.0
 targets:
   SentinelBase:
     type: application

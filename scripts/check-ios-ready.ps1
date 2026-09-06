@@ -17,14 +17,16 @@ if ($missing) { throw "Missing required iOS files:`n$($missing -join "`n")" }
 
 $project = Get-Content -Raw -LiteralPath $projectPath
 if ($project -notmatch 'MARKETING_VERSION = 1\.2\.1;' -or
-    $project -notmatch 'CURRENT_PROJECT_VERSION = 8;' -or
+    $project -notmatch 'CURRENT_PROJECT_VERSION = ([0-9]+);' -or
     $project -notmatch 'PRODUCT_BUNDLE_IDENTIFIER = uk\.co\.sentinel\.base;' -or
     $project -notmatch 'DEVELOPMENT_TEAM = 9G2H3DAXFZ;') {
-    throw 'The Xcode project identity does not match SentinelBase 1.2.1 (8).'
+    throw 'The Xcode project identity does not match SentinelBase 1.2.1.'
 }
+$sourceBuild = [int]([regex]::Match($project, 'CURRENT_PROJECT_VERSION = ([0-9]+);').Groups[1].Value)
+if ($sourceBuild -lt 8) { throw "The source build number $sourceBuild predates the build-8 handoff." }
 
 $packageLock = Get-Content -Raw -LiteralPath $packageLockPath
-if ($packageLock -notmatch 'Reganrx/WebRTC\.git' -or $packageLock -notmatch '151\.0\.0') {
+if ($packageLock -notmatch 'stasel/WebRTC\.git' -or $packageLock -notmatch '152\.0\.0') {
     throw 'The pinned WebRTC package is missing or has changed unexpectedly.'
 }
 
@@ -43,6 +45,7 @@ foreach ($file in $swiftFiles) {
 }
 
 Write-Host 'Sentinel iOS source is ready for Xcode Cloud.'
-Write-Host 'Version: 1.2.1 (8)'
+Write-Host "Source version: 1.2.1 ($sourceBuild); latest uploaded Xcode Cloud build: 9"
+Write-Host 'Next TestFlight upload must use build 10 or higher.'
 Write-Host 'Scheme:  SentinelBase'
 Write-Host "Swift:   $($swiftFiles.Count) source files"
