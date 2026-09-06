@@ -6,14 +6,25 @@ struct SentinelCloud {
     private let endpoint = URL(string: "https://sentinel-relay.reganbelson.workers.dev")!
     static let relayBaseURL = "https://sentinel-relay.reganbelson.workers.dev"
 
+    private func registrationCredentials() -> (id: String, secret: String) {
+        let id = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
+        if let secret = KeychainStore.string(for: "updateRegistrationSecret"), secret.count >= 32 {
+            return (id, secret)
+        }
+        let secret = UUID().uuidString + UUID().uuidString
+        try? KeychainStore.set(secret, for: "updateRegistrationSecret")
+        return (id, secret)
+    }
+
     func registerInstallation() async -> Bool {
         var request = URLRequest(url: endpoint.appending(path: "v1/installations/register"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let identifier = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
+        let credentials = registrationCredentials()
+        request.setValue(credentials.secret, forHTTPHeaderField: "X-Sentinel-Registration")
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
         request.httpBody = try? JSONSerialization.data(withJSONObject: [
-            "installationId": identifier,
+            "installationId": credentials.id,
             "platform": "ios",
             "appVersion": version,
             "contentVersion": UserDefaults.standard.string(forKey: "sentinelContentVersion") ?? "none",
@@ -27,8 +38,14 @@ struct SentinelCloud {
 
     func latestRelease() async throws -> SentinelRelease? {
         var components = URLComponents(url: endpoint.appending(path: "v1/releases/latest"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "platform", value: "ios")]
-        let (data, response) = try await URLSession.shared.data(from: components.url!)
+        let credentials = registrationCredentials()
+        components.queryItems = [
+            URLQueryItem(name: "platform", value: "ios"),
+            URLQueryItem(name: "installationId", value: credentials.id),
+        ]
+        var request = URLRequest(url: components.url!)
+        request.setValue(credentials.secret, forHTTPHeaderField: "X-Sentinel-Registration")
+        let (data, response) = try await URLSession.shared.data(for: request)
         if (response as? HTTPURLResponse)?.statusCode == 404 { return nil }
         return try JSONDecoder().decode(SentinelRelease.self, from: data)
     }
@@ -92,7 +109,10 @@ struct SentinelCloud {
 
     private func cloudCompanionRequest(path: String, method: String, body: Data?) async throws -> Data {
         guard let token = KeychainStore.string(for: "cloudToken") else { throw URLError(.userAuthenticationRequired) }
-        var cloud = URLRequest(url: endpoint.appending(path: "companion/sync" + path)); cloud.httpMethod = method; cloud.httpBody = body
+        let cleanPath = path.hasPrefix("/") ? path : "/" + path
+        let nativeAlias = cleanPath == "/status" || cleanPath == "/clipboard" || cleanPath == "/files" || cleanPath.hasPrefix("/files/")
+        let cloudPath = nativeAlias ? cleanPath : "/companion/sync" + cleanPath
+        var cloud = URLRequest(url: endpoint.appending(path: String(cloudPath.dropFirst()))); cloud.httpMethod = method; cloud.httpBody = body
         cloud.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization"); cloud.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let (data, response) = try await URLSession.shared.data(for: cloud)
         guard isSuccess(response) else { throw URLError(.badServerResponse) }
