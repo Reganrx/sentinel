@@ -830,7 +830,7 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
                 context: chatContext,
                 attachments: attachments
             )
-            chatMessages.append(SentinelChatMessage(role: .assistant, text: reply.reply))
+            chatMessages.append(SentinelChatMessage(role: .assistant, text: reply.reply, generatedImages: storeGeneratedImages(reply.images)))
             applyChatDelivery(reply)
             if spokenResponses { speakAssistantResponse(reply.reply) }
             chatAttachments = []
@@ -848,7 +848,7 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
         defer { isSendingChat = false }
         do {
             let reply = try await cloud.sendAssistantMessage(messages: Array(chatMessages.suffix(16)), allowCloudFallback: mobileChatAccessEnabled, conversationID: conversationID, context: chatContext, attachments: chatAttachments)
-            chatMessages.append(SentinelChatMessage(role: .assistant, text: reply.reply))
+            chatMessages.append(SentinelChatMessage(role: .assistant, text: reply.reply, generatedImages: storeGeneratedImages(reply.images)))
             applyChatDelivery(reply)
             if spokenResponses { speakAssistantResponse(reply.reply) }
             persistChatConversation()
@@ -894,7 +894,24 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     func speakAssistantResponse(_ text: String) { let lower = text.lowercased(); guard !["password", "api key", "access token", "pairing code"].contains(where: lower.contains) else { return }; speechSynthesizer.stopSpeaking(at: .immediate); let utterance = AVSpeechUtterance(string: text); utterance.voice = AVSpeechSynthesisVoice(language: "en-GB"); speechSynthesizer.speak(utterance) }
     func stopSpeaking() { speechSynthesizer.stopSpeaking(at: .immediate) }
     var conversationExportText: String { "\(conversationTitle)\n\n" + chatMessages.map { "[\($0.role.rawValue.capitalized)] \($0.text)" }.joined(separator: "\n\n") }
-    func runChatAction(_ action: SentinelChatAction) { switch action.type { case "open_directions": if let latitude = action.latitude, let longitude = action.longitude { let item = MKMapItem(placemark: MKPlacemark(coordinate: .init(latitude: latitude, longitude: longitude))); item.name = action.query; item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving]) }; case "view_weather": selected = .weather; if let query = action.query { mapSearch = query }; case "track_flight": selected = .travel; if let flight = action.flight { flightNumber = flight }; case "open_page": if let page = action.page, let destination = SentinelPage(rawValue: page) { selected = destination }; default: break } }
+
+    private func storeGeneratedImages(_ images: [AssistantGeneratedImage]) -> [SentinelGeneratedImage] {
+        guard !images.isEmpty,
+              let support = try? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true) else { return [] }
+        let directory = support.appendingPathComponent("Sentinel/GeneratedImages", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return images.compactMap { image in
+            guard image.mimeType == "image/png", let bytes = Data(base64Encoded: image.data), !bytes.isEmpty else { return nil }
+            let filename = "\(UUID().uuidString).png"
+            let url = directory.appendingPathComponent(filename)
+            do {
+                try bytes.write(to: url, options: [.atomic])
+                try? FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: url.path)
+                return SentinelGeneratedImage(prompt: image.prompt, revisedPrompt: image.revisedPrompt, filename: filename)
+            } catch { return nil }
+        }
+    }
+    func runChatAction(_ action: SentinelChatAction) { switch action.type { case "open_directions": if let latitude = action.latitude, let longitude = action.longitude { let item = MKMapItem(placemark: MKPlacemark(coordinate: .init(latitude: latitude, longitude: longitude))); item.name = action.query; item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving]) }; case "view_weather": selected = .weather; if let query = action.query { mapSearch = query }; case "track_flight": selected = .travel; if let flight = action.flight { flightNumber = flight }; case "open_page": if let page = action.page, let destination = SentinelPage.allCases.first(where: { $0.rawValue.caseInsensitiveCompare(page) == .orderedSame }) { selected = destination }; default: break } }
 
     /// Applies only Worker-verified live-conversation results to the existing
     /// mobile pages. Raw Realtime model text never directly changes navigation.
@@ -917,6 +934,11 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
                 flightNumber = flight
                 selected = .travel
                 Task { await fetchFlightStatus() }
+            }
+        case "page":
+            if let page = result["page"] as? String,
+               let destination = SentinelPage.allCases.first(where: { $0.rawValue.caseInsensitiveCompare(page) == .orderedSame }) {
+                selected = destination
             }
         default:
             break
@@ -1558,7 +1580,7 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     }
 
     private func updateConversation(_ id: UUID, _ change: (inout SentinelConversation) -> Void) { guard let index = conversations.firstIndex(where: { $0.id == id }) else { return }; change(&conversations[index]); conversationRepository.save(conversations) }
-    private func applyChatDelivery(_ delivery: AssistantChatDelivery) { if let title = delivery.title, !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, conversationTitle == "New conversation" { conversationTitle = String(title.prefix(40)) }; chatActions = delivery.actions.filter { ["open_page", "open_directions", "view_weather", "track_flight"].contains($0.type) }; chatCards = delivery.cards.filter { ["weather", "place", "flight", "info"].contains($0.type) }; chatVerifiedAt = delivery.verifiedAt }
+    private func applyChatDelivery(_ delivery: AssistantChatDelivery) { if let title = delivery.title, !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, conversationTitle == "New conversation" { conversationTitle = String(title.prefix(40)) }; chatActions = delivery.actions.filter { ["open_page", "open_directions", "view_weather", "track_flight"].contains($0.type) }; chatCards = delivery.cards.filter { ["weather", "place", "flight", "info"].contains($0.type) }; chatVerifiedAt = delivery.verifiedAt; if let navigation = chatActions.first(where: { $0.type == "open_page" }) { runChatAction(navigation) } }
 
     private var chatContext: MobileChatContext {
         let capabilities = enabledMobileServices.union(["companion", "file-sharing"]).sorted()
@@ -2183,18 +2205,35 @@ struct SentinelChatMessage: Identifiable, Codable {
     let role: Role
     let text: String
     let attachments: [SentinelChatAttachment]
+    let generatedImages: [SentinelGeneratedImage]
 
-    init(id: UUID = UUID(), role: Role, text: String, attachments: [SentinelChatAttachment] = []) {
+    init(id: UUID = UUID(), role: Role, text: String, attachments: [SentinelChatAttachment] = [], generatedImages: [SentinelGeneratedImage] = []) {
         self.id = id
         self.role = role
         self.text = text
         self.attachments = attachments
+        self.generatedImages = generatedImages
     }
 
-    enum CodingKeys: String, CodingKey { case id, role, text, attachments }
-    init(from decoder: Decoder) throws { let c = try decoder.container(keyedBy: CodingKeys.self); id = try c.decode(UUID.self, forKey: .id); role = try c.decode(Role.self, forKey: .role); text = try c.decode(String.self, forKey: .text); attachments = try c.decodeIfPresent([SentinelChatAttachment].self, forKey: .attachments) ?? [] }
+    enum CodingKeys: String, CodingKey { case id, role, text, attachments, generatedImages }
+    init(from decoder: Decoder) throws { let c = try decoder.container(keyedBy: CodingKeys.self); id = try c.decode(UUID.self, forKey: .id); role = try c.decode(Role.self, forKey: .role); text = try c.decode(String.self, forKey: .text); attachments = try c.decodeIfPresent([SentinelChatAttachment].self, forKey: .attachments) ?? []; generatedImages = try c.decodeIfPresent([SentinelGeneratedImage].self, forKey: .generatedImages) ?? [] }
 
     var apiRole: String { role.rawValue }
+}
+
+struct SentinelGeneratedImage: Identifiable, Codable {
+    let id: UUID
+    let prompt: String
+    let revisedPrompt: String?
+    let filename: String
+
+    init(id: UUID = UUID(), prompt: String, revisedPrompt: String?, filename: String) { self.id = id; self.prompt = prompt; self.revisedPrompt = revisedPrompt; self.filename = filename }
+
+    var fileURL: URL? {
+        guard filename == URL(fileURLWithPath: filename).lastPathComponent,
+              let support = try? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false) else { return nil }
+        return support.appendingPathComponent("Sentinel/GeneratedImages", isDirectory: true).appendingPathComponent(filename)
+    }
 }
 
 enum SentinelPage: String, CaseIterable, Identifiable {

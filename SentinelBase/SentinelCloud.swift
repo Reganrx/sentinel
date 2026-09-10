@@ -187,7 +187,7 @@ struct SentinelCloud {
 
     private func mobileServiceRequest(path: String, body: Data, token: String) async throws -> Data {
         var request = URLRequest(url: endpoint.appending(path: path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))))
-        request.httpMethod = "POST"; request.httpBody = body; request.timeoutInterval = 20
+        request.httpMethod = "POST"; request.httpBody = body; request.timeoutInterval = path == "/mobile/services/chat" ? 100 : 20
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -285,16 +285,18 @@ private struct AssistantChatResponse: Decodable {
     let verifiedAt: String?
     let actions: [SentinelChatAction]?
     let cards: [SentinelChatCard]?
-    enum CodingKeys: String, CodingKey { case message, replyText = "reply", outputText = "output_text", output, title, summary, verifiedAt = "verifiedAt", actions, cards }
+    let images: [AssistantGeneratedImage]?
+    enum CodingKeys: String, CodingKey { case message, replyText = "reply", outputText = "output_text", output, title, summary, verifiedAt = "verifiedAt", actions, cards, images }
     static func delivery(from data: Data) -> AssistantChatDelivery? {
         guard let response = try? JSONDecoder().decode(Self.self, from: data) else { return nil }
         let outputText = (response.output ?? []).flatMap { output in (output.content ?? []).compactMap { $0.text } }
         let candidates = [response.message?.content, response.outputText, response.replyText].compactMap { $0 } + outputText
         guard let reply = candidates.map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) }).first(where: { !$0.isEmpty }) else { return nil }
-        return AssistantChatDelivery(reply: reply, title: response.title, summary: response.summary, actions: response.actions ?? [], cards: response.cards ?? [], verifiedAt: response.verifiedAt)
+        return AssistantChatDelivery(reply: reply, title: response.title, summary: response.summary, actions: response.actions ?? [], cards: response.cards ?? [], images: response.images ?? [], verifiedAt: response.verifiedAt)
     }
 }
-struct AssistantChatDelivery { let reply: String; let title: String?; let summary: String?; let actions: [SentinelChatAction]; let cards: [SentinelChatCard]; let verifiedAt: String? }
+struct AssistantGeneratedImage: Decodable { let id: String?; let prompt: String; let revisedPrompt: String?; let mimeType: String; let data: String }
+struct AssistantChatDelivery { let reply: String; let title: String?; let summary: String?; let actions: [SentinelChatAction]; let cards: [SentinelChatCard]; let images: [AssistantGeneratedImage]; let verifiedAt: String? }
 struct MobileChatLocation: Encodable { let latitude: Double; let longitude: Double }
 struct MobileChatContext: Encodable { let platform: String; let appVersion: String; let contentVersion: String; let currentPage: String; let enabledServices: [String]; let companionOnline: Bool; let weatherSummary: String?; let weatherLocation: String?; let selectedDestination: String?; let selectedFlight: String?; let localTime: String; let locale: String; let capabilities: [String]; let location: MobileChatLocation? }
 private struct MobileChatRequest: Encodable { struct Message: Encodable { let role: String; let content: String }; struct Attachment: Encodable { let name: String; let mimeType: String; let data: String }; let conversationID: String; let messages: [Message]; let context: MobileChatContext; let attachments: [Attachment]; enum CodingKeys: String, CodingKey { case conversationID = "conversationId", messages, context, attachments } }

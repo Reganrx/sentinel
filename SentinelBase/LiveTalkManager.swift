@@ -140,7 +140,7 @@ final class LiveTalkManager: NSObject, ObservableObject {
               let argumentsData = rawArguments.data(using: .utf8),
               let arguments = try? JSONSerialization.jsonObject(with: argumentsData) as? [String: Any],
               let service = arguments["service"] as? String,
-              ["weather", "navigation", "aviation"].contains(service),
+              ["weather", "navigation", "aviation", "page"].contains(service),
               let query = arguments["query"] as? String,
               let sessionID,
               let token = KeychainStore.string(for: "mobileServiceAccessToken") else { return }

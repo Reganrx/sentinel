@@ -21,6 +21,10 @@ No Apple certificates, provisioning profiles, API keys, passwords or tokens belo
 repository. Compatible content/configuration updates may continue through Sentinel Cloud;
 native executable updates use Xcode Cloud and TestFlight.
 
+Build 11 adds native cross-page command routing for typed chat and Live Talk, plus secure
+image generation through Sentinel Relay. Generated image files are stored locally with
+iOS data protection and can be opened full screen or shared without exposing the OpenAI key.
+
 Build 11 is prepared locally and must not be pushed until the App Store Connect API key,
 Issuer ID, Key ID and Xcode Cloud Workflow ID have been confirmed in Sentinel Personal's
 Release Module. Pushing this branch triggers the automatic Xcode Cloud workflow.

@@ -8,14 +8,23 @@ struct RootView: View {
     @EnvironmentObject private var app: SentinelAppModel
     @EnvironmentObject private var live: LiveTalkManager
     @State private var browsePresented = false
+    @State private var navigationPath: [SentinelPage] = []
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             SentinelPageView(page: .home)
                 .navigationDestination(for: SentinelPage.self) { SentinelPageView(page: $0) }
                 .toolbar { ToolbarItemGroup(placement: .topBarTrailing) { Button { live.open(conversationId: app.conversationID, enabledServices: app.enabledMobileServices.sorted()) } label: { Image(systemName: liveIcon).symbolEffect(.pulse, options: .repeating, isActive: live.state == .thinking || live.state == .speaking).foregroundStyle(Color(uiColor: app.accentColor)) }.accessibilityLabel(liveAccessibilityLabel); Button { browsePresented = true } label: { Label("Browse", systemImage: "square.grid.2x2") } } }
         }
         .tint(Color(uiColor: app.accentColor)).preferredColorScheme(.dark)
         .sheet(isPresented: $browsePresented) { SentinelBrowseView() }
+        .onChange(of: app.selected) { _, page in
+            let destination: [SentinelPage] = page == .home ? [] : [page]
+            if navigationPath != destination { navigationPath = destination }
+        }
+        .onChange(of: navigationPath) { _, path in
+            let visiblePage = path.last ?? .home
+            if app.selected != visiblePage { app.selected = visiblePage }
+        }
         .sheet(isPresented: $live.isPanelPresented) { TalkWithSentinelView() }
         .onAppear { live.onVerifiedTool = { service, result in app.applyVerifiedLiveTool(service: service, result: result) } }
         .overlay { if app.isLocked { SentinelLockView() } }
@@ -28,7 +37,7 @@ struct RootView: View {
 private struct SentinelBrowseView: View {
     @EnvironmentObject private var app: SentinelAppModel
     @Environment(\.dismiss) private var dismiss
-    var body: some View { NavigationStack { List(app.menuPages.filter { $0 != .home }) { page in NavigationLink(value: page) { Label(page.rawValue, systemImage: page.symbol) } }.navigationTitle("Sentinel").navigationDestination(for: SentinelPage.self) { SentinelPageView(page: $0) }.toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } } }.preferredColorScheme(.dark) }
+    var body: some View { NavigationStack { List(app.menuPages.filter { $0 != .home }) { page in Button { app.selected = page; dismiss() } label: { Label(page.rawValue, systemImage: page.symbol) } }.navigationTitle("Sentinel").toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } } }.preferredColorScheme(.dark) }
 }
 
 private struct SentinelPageView: View {
@@ -415,7 +424,23 @@ private struct SentinelChatWorkspace: View {
                             .padding()
                         }
                         ForEach(app.chatMessages) { message in
-                            HStack { if message.role == .user { Spacer(minLength: 40) }; VStack(alignment: .leading, spacing: 7) { Text(message.text).font(.body).textSelection(.enabled); if !message.attachments.isEmpty { ForEach(message.attachments) { attachment in Label("\(attachment.name) · \(ByteCountFormatter.string(fromByteCount: Int64(attachment.byteCount), countStyle: .file))", systemImage: attachment.isImage ? "photo" : "doc") .font(.caption).foregroundStyle(.cyan) } } }.padding(.horizontal, 14).padding(.vertical, 11).frame(maxWidth: UIScreen.main.bounds.width * 0.82, alignment: .leading).background(message.role == .user ? Color.cyan.opacity(0.27) : Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).stroke(message.role == .user ? Color.cyan.opacity(0.35) : Color.white.opacity(0.08))); if message.role == .assistant { Spacer(minLength: 40) } }.id(message.id)
+                            HStack {
+                                if message.role == .user { Spacer(minLength: 40) }
+                                VStack(alignment: .leading, spacing: 7) {
+                                    Text(message.text).font(.body).textSelection(.enabled)
+                                    if !message.attachments.isEmpty {
+                                        ForEach(message.attachments) { attachment in
+                                            Label("\(attachment.name) · \(ByteCountFormatter.string(fromByteCount: Int64(attachment.byteCount), countStyle: .file))", systemImage: attachment.isImage ? "photo" : "doc").font(.caption).foregroundStyle(.cyan)
+                                        }
+                                    }
+                                    ForEach(message.generatedImages) { image in SentinelGeneratedImageCard(image: image) }
+                                }
+                                .padding(.horizontal, 14).padding(.vertical, 11)
+                                .frame(maxWidth: UIScreen.main.bounds.width * 0.82, alignment: .leading)
+                                .background(message.role == .user ? Color.cyan.opacity(0.27) : Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 18))
+                                .overlay(RoundedRectangle(cornerRadius: 18).stroke(message.role == .user ? Color.cyan.opacity(0.35) : Color.white.opacity(0.08)))
+                                if message.role == .assistant { Spacer(minLength: 40) }
+                            }.id(message.id)
                         }
                         if !app.chatCards.isEmpty || !app.chatActions.isEmpty { SentinelStructuredReply() }
                         if app.isSendingChat { HStack(spacing: 10) { ProgressView().tint(.cyan); Text("Sentinel is thinking…").foregroundStyle(.secondary) }.padding(.vertical, 8) }
@@ -462,6 +487,35 @@ private struct SentinelChatWorkspace: View {
 
     private func quickPrompt(_ prompt: String) -> some View { Button(prompt) { app.chatDraft = prompt; Task { await app.submitAssistantPrompt() } }.buttonStyle(.bordered).tint(.cyan).font(.caption) }
     private var sharingWorkspace: some View { ScrollView { VStack(alignment: .leading, spacing: 16) { Card(title: "COMPANION SYNC", symbol: "link.badge.plus") { Text("Securely share notes and files with your paired Sentinel desktop.").font(.caption).foregroundStyle(.secondary); TextField("Type shared text…", text: $app.clipboardText, axis: .vertical).lineLimit(2...5).textFieldStyle(.roundedBorder); HStack { Button("Send text") { Task { await app.sendClipboard() } }.buttonStyle(.borderedProminent).tint(.cyan); Button("Send file") { importingFile = true }.buttonStyle(.bordered).tint(.cyan) }; if !app.desktopClipboardText.isEmpty { Divider(); Text("FROM DESKTOP").font(.caption2.bold()).foregroundStyle(.cyan); Text(app.desktopClipboardText).font(.subheadline).lineLimit(4); Button("Copy to iPhone") { app.copyDesktopClipboardToPhone() }.buttonStyle(.bordered) } }; Card(title: "SHARED FILES", symbol: "folder.fill") { HStack { Text(app.remoteFiles.isEmpty ? "No files received yet." : "\(app.remoteFiles.count) shared file\(app.remoteFiles.count == 1 ? "" : "s")").foregroundStyle(.secondary); Spacer(); Button { Task { await app.refreshCompanionWorkspace() } } label: { Label("Refresh", systemImage: "arrow.clockwise") }.buttonStyle(.bordered).tint(.cyan) }; ForEach(app.remoteFiles) { file in HStack(spacing: 12) { Image(systemName: "doc.fill").foregroundStyle(.cyan); VStack(alignment: .leading) { Text(file.name).lineLimit(1); if let bytes = file.byteCount { Text(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)).font(.caption).foregroundStyle(.secondary) } }; Spacer(); Button(role: .destructive) { Task { await app.deleteRemoteFile(file) } } label: { Image(systemName: "trash") } } } } }.padding(.horizontal) } }
+}
+
+private struct SentinelGeneratedImageCard: View {
+    let image: SentinelGeneratedImage
+    @State private var isPresented = false
+    private var uiImage: UIImage? { guard let url = image.fileURL, let data = try? Data(contentsOf: url) else { return nil }; return UIImage(data: data) }
+    var body: some View {
+        if let uiImage {
+            VStack(alignment: .leading, spacing: 8) {
+                Button { isPresented = true } label: {
+                    Image(uiImage: uiImage).resizable().scaledToFit().clipShape(RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.cyan.opacity(0.25)))
+                }.buttonStyle(.plain).accessibilityLabel("Open generated image")
+                HStack {
+                    Label("Generated by Sentinel", systemImage: "sparkles").font(.caption).foregroundStyle(.cyan)
+                    Spacer()
+                    if let url = image.fileURL { ShareLink(item: url) { Label("Share", systemImage: "square.and.arrow.up").font(.caption) } }
+                }
+            }
+            .sheet(isPresented: $isPresented) {
+                NavigationStack {
+                    ZStack { Color.black.ignoresSafeArea(); Image(uiImage: uiImage).resizable().scaledToFit().padding() }
+                        .navigationTitle("Sentinel Image").navigationBarTitleDisplayMode(.inline)
+                        .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Done") { isPresented = false } }; if let url = image.fileURL { ToolbarItem(placement: .topBarTrailing) { ShareLink(item: url) { Image(systemName: "square.and.arrow.up") } } } }
+                }.preferredColorScheme(.dark)
+            }
+        } else {
+            Label("Generated image is no longer available", systemImage: "photo.badge.exclamationmark").font(.caption).foregroundStyle(.secondary)
+        }
+    }
 }
 
 private struct TalkWithSentinelView: View {
@@ -585,8 +639,8 @@ private struct SentinelMobileHelpView: View {
     }
     @Environment(\.dismiss) private var dismiss
     private let sections = [
-        HelpSection(title: "Chat and images", detail: "Ask Sentinel normally, attach a file or photo with the plus button, or request an image in plain English. Use History to reopen an earlier conversation."),
-        HelpSection(title: "Voice", detail: "The microphone sends one dictated message. Talk with Sentinel starts a live conversation; minimise its panel to move around the app without ending the session."),
+        HelpSection(title: "Chat and images", detail: "Ask Sentinel normally, attach a file or photo with the plus button, or request an image in plain English. Generated images stay with the conversation; tap one for full-screen viewing and use Share to save or send it. Use History to reopen an earlier conversation."),
+        HelpSection(title: "Voice", detail: "The microphone sends one dictated message. Talk with Sentinel starts a live conversation; minimise its panel to move around without ending the session. You can ask Live Talk to open Home, Chat, Navigation, Travel, Weather, Notifications, Settings or System."),
         HelpSection(title: "Weather and navigation", detail: "Weather uses the current location and approved mobile service access. Navigation can search nearby places, calculate a route and hand the journey to Apple Maps."),
         HelpSection(title: "Travel", detail: "Save journeys and flights, review destination information, and keep readiness items together. Confirm important details with the airline or official travel guidance."),
         HelpSection(title: "Desktop sync", detail: "Pair using the six-digit code from Sentinel Personal. Mobile service permissions are separate and never copy raw provider keys to the iPhone."),
