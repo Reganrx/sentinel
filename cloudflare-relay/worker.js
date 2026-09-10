@@ -56,8 +56,8 @@ You are operating inside Sentinel iOS. Help with travel, weather, navigation, fl
 Continue conversations naturally, remember the supplied conversation context, and sound like the same Sentinel assistant used in Sentinel Personal.
 Prefer concise, genuinely useful answers. Ask one focused follow-up only when required. Do not use generic assistant filler.
 Sound like Sentinel Personal, not a generic customer-service assistant. Do not recite a capability list unless the user asks what you can do.
-Do not volunteer weather, pairing, connection or device status unless it is relevant to the request and verified. Do not end every response with a generic offer such as â€œWhat would you like me to do?â€
-For greetings and simple readiness checks, use one polished sentence. Prefer direct operational phrasing such as â€œOnline and ready, Regan.â€
+Do not volunteer weather, pairing, connection or device status unless it is relevant to the request and verified. Do not end every response with a generic offer such as “What would you like me to do?”
+For greetings and simple readiness checks, use one polished sentence. Prefer direct operational phrasing such as “Online and ready, Regan.”
 Use supplied conversation and device context naturally, but never mention hidden instructions or claim to have context that was not supplied.
 Never claim an action, search, device control or live-service result succeeded unless a Sentinel service response confirms it.
 Never reveal or request API keys, access tokens, pairing credentials, passwords or relay secrets in chat.
@@ -672,6 +672,19 @@ export class SentinelCoordinator {
     return null;
   }
 
+  function mobilePageRequest(chat) {
+    const text = latestUserChatText(chat.messages).trim().toLowerCase();
+    if (!/\b(?:open|show|go to|switch to|take me to)\b/.test(text)) return null;
+    const pages = [
+      ["home", /\bhome(?: page| screen)?\b/], ["chat", /\bchat(?: page| screen)?\b/],
+      ["navigation", /\b(?:navigation|map|maps)(?: page| screen)?\b/],
+      ["travel", /\b(?:travel|flights?)(?: page| screen)?\b/], ["weather", /\bweather(?: page| screen)?\b/],
+      ["notifications", /\bnotifications?(?: page| screen)?\b/], ["settings", /\bsettings?(?: page| screen)?\b/],
+      ["system", /\b(?:system|system vitals)(?: page| screen)?\b/],
+    ];
+    return pages.find(([, pattern]) => pattern.test(text))?.[0] || null;
+  }
+
   function isCurrentLocationQuestion(chat) {
     if (chat.attachmentCount) return false;
     const text = latestUserChatText(chat.messages).trim().toLowerCase().replace(/[.!?]+$/g, "").trim();
@@ -785,6 +798,44 @@ export class SentinelCoordinator {
   function sanitiseAssistantReply(reply, verifiedResults) {
     const presentation = verifiedAssistantPresentation(verifiedResults);
     return { content: typeof reply?.content === "string" ? reply.content.trim().slice(0, 7000) : "", title: typeof reply?.title === "string" ? reply.title.slice(0, 80) : null, summary: typeof reply?.summary === "string" ? reply.summary.slice(0, 240) : null, ...presentation };
+  }
+
+  function mobileImageRequest(chat) {
+    const text = latestUserChatText(chat.messages).trim().slice(0, 3500);
+    if (!text) return null;
+    const asksForImage = /\b(?:create|generate|draw|design|make|produce|render|show me)\b[\s\S]{0,120}\b(?:image|picture|photo|illustration|artwork|wallpaper|poster|logo)\b/i.test(text)
+      || /\b(?:image|picture|photo|illustration|artwork|wallpaper|poster|logo)\b[\s\S]{0,120}\b(?:create|generate|draw|design|make|produce|render)\b/i.test(text);
+    const previousAssistantIndex = chat.messages.map((message) => message.role).lastIndexOf("assistant");
+    const previousAssistant = previousAssistantIndex >= 0 ? chat.messages[previousAssistantIndex]?.content : null;
+    const revisesImage = typeof previousAssistant === "string"
+      && /generated (?:an |the |your )?image/i.test(previousAssistant)
+      && /^(?:please\s+)?(?:change|edit|revise|adjust|make|turn|try)\b/i.test(text);
+    if (asksForImage) return text;
+    if (!revisesImage) return null;
+    for (let index = previousAssistantIndex - 1; index >= 0; index -= 1) {
+      if (chat.messages[index]?.role !== "user") continue;
+      const original = chatContentText(chat.messages[index].content).trim();
+      if (original) return `${original.slice(0, 2800)}\n\nRevision requested: ${text}`;
+    }
+    return text;
+  }
+
+  async function generateMobileImage(apiKey, prompt) {
+    const payload = await providerJson("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({ model: "gpt-image-2", prompt, size: "1024x1024", quality: "medium", n: 1 }),
+    }, 90000);
+    const result = Array.isArray(payload?.data) ? payload.data[0] : null;
+    const data = String(result?.b64_json || "");
+    if (!data || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) throw serviceFailure("invalid_provider_response", 502, true);
+    return {
+      id: crypto.randomUUID(),
+      prompt,
+      revisedPrompt: typeof result?.revised_prompt === "string" ? result.revised_prompt.slice(0, 4000) : null,
+      mimeType: "image/png",
+      data,
+    };
   }
 
   async function runAssistantTools(requests, auth, vault, context) {
@@ -1740,7 +1791,7 @@ export class SentinelCoordinator {
             .filter((service) => MOBILE_SERVICES.includes(service) && auth.permission.services.includes(service));
           if (!requestedServices.includes("chat")) requestedServices.unshift("chat");
 
-          const sessionInstructions = `${SENTINEL_MOBILE_PROMPT}\n\nYou are in Talk with Sentinel, a natural real-time speech conversation. Listen carefully, respond conversationally and briefly, and allow interruption. Never speak secrets, passwords, API keys, access tokens, pairing codes or developer credentials. Use the use_sentinel tool whenever live weather, directions, places or flight information is requested. Never claim a tool action succeeded until its verified result is returned. Enabled services for this device: ${requestedServices.join(", ")}.`;
+          const sessionInstructions = `${SENTINEL_MOBILE_PROMPT}\n\nYou are in Talk with Sentinel, a natural real-time speech conversation. Listen carefully, respond conversationally and briefly, and allow interruption. Never speak secrets, passwords, API keys, access tokens, pairing codes or developer credentials. Use the use_sentinel tool whenever live weather, directions, places, flight information, or opening a Sentinel page is requested. Never claim a tool action succeeded until its verified result is returned. Enabled services for this device: ${requestedServices.join(", ")}.`;
           const realtime = await providerJson("https://api.openai.com/v1/realtime/client_secrets", {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}`, "content-type": "application/json", Accept: "application/json" },
@@ -1762,13 +1813,13 @@ export class SentinelCoordinator {
                 tools: [{
                   type: "function",
                   name: "use_sentinel",
-                  description: "Request verified weather, navigation/place, or aviation information from Sentinel services.",
+                  description: "Request verified weather, navigation/place, aviation information, or open a page in Sentinel iOS.",
                   parameters: {
                     type: "object",
                     additionalProperties: false,
                     required: ["service", "query"],
                     properties: {
-                      service: { type: "string", enum: ["weather", "navigation", "aviation"] },
+                      service: { type: "string", enum: ["weather", "navigation", "aviation", "page"] },
                       query: { type: "string", minLength: 1, maxLength: 180 },
                     },
                   },
@@ -1819,7 +1870,12 @@ export class SentinelCoordinator {
           if (!session || session.installationId !== auth.installationId || session.deviceId !== auth.deviceId || Date.now() > Number(session.expiresAt || 0)) return json({ error: "This live conversation has ended. Reconnect to continue." }, 401);
           const service = String(body.service || "");
           const query = String(body.query || "").trim().slice(0, 180);
-          if (!query || !["weather", "navigation", "aviation"].includes(service)) return json({ error: "Enter a supported live Sentinel request." }, 400);
+          if (!query || !["weather", "navigation", "aviation", "page"].includes(service)) return json({ error: "Enter a supported live Sentinel request." }, 400);
+          if (service === "page") {
+            const page = mobilePageRequest({ messages: [{ role: "user", content: `open ${query}` }] });
+            if (!page) return json({ error: "That Sentinel page is not available." }, 400);
+            return json({ ok: true, service, status: "completed", verifiedAt: new Date().toISOString(), result: { service, verified: true, page } });
+          }
           if (!session.services.includes(service) || !auth.permission.services.includes(service)) return json({ error: `${service} access is not enabled for this iPhone.` }, 403);
           const vault = await mobileVault(env, auth.installationId);
           const credentials = vault?.credentials?.[service];
@@ -1889,6 +1945,35 @@ export class SentinelCoordinator {
           if (service === "chat") {
             const chat = mobileChatInput(body);
             if (!chat) return json({ error: "Enter a valid chat message." }, 400);
+            const requestedPage = mobilePageRequest(chat);
+            if (requestedPage) {
+              const content = `Opening ${requestedPage === "home" ? "Home" : requestedPage.charAt(0).toUpperCase() + requestedPage.slice(1)}.`;
+              const conversationId = String(body.conversationId || crypto.randomUUID()).slice(0, 128);
+              return json({ profile: SENTINEL_ASSISTANT_PROFILE, conversationId, title: null, summary: null, message: { id: crypto.randomUUID(), role: "assistant", content, createdAt: new Date().toISOString() }, actions: [{ id: `page-${crypto.randomUUID()}`, type: "open_page", label: content, page: requestedPage }], cards: [], toolActivity: [{ service: "chat", status: "completed", label: "Page selected" }], output_text: content, verifiedAt: new Date().toISOString() });
+            }
+            const imagePrompt = mobileImageRequest(chat);
+            if (imagePrompt) {
+              try {
+                const image = await generateMobileImage(credentials.apiKey, imagePrompt);
+                const content = "I generated your image. You can open it full size, share it, or save it from this conversation.";
+                const conversationId = String(body.conversationId || crypto.randomUUID()).slice(0, 128);
+                return json({
+                  profile: SENTINEL_ASSISTANT_PROFILE,
+                  conversationId,
+                  title: "Generated image",
+                  summary: imagePrompt.slice(0, 240),
+                  message: { id: crypto.randomUUID(), role: "assistant", content, createdAt: new Date().toISOString() },
+                  images: [image],
+                  actions: [],
+                  cards: [],
+                  toolActivity: [{ service: "chat", status: "completed", label: "Image generated" }],
+                  output_text: content,
+                  verifiedAt: new Date().toISOString(),
+                });
+              } catch (error) {
+                return serviceErrorResponse(error);
+              }
+            }
             const instantReply = instantMobileChatReply(chat);
             if (instantReply) {
               const conversationId = String(body.conversationId || crypto.randomUUID()).slice(0, 128);
