@@ -514,6 +514,12 @@ export default function SettingsView() {
     }).catch(() => undefined);
   }, [companionStatus?.configured]);
   useEffect(() => {
+    // Keep the recovery action visible when sync is off. Previously the only
+    // enable button was hidden inside a collapsed panel, which made a disabled
+    // installation look like it could not be restored.
+    if (companionStatus && !companionStatus.configured) setCompanionOpen(true);
+  }, [companionStatus]);
+  useEffect(() => {
     if (!companionStatus?.configured) { setCompanionItems([]); return; }
     let active = true;
     const refresh = () => listCompanionItems()

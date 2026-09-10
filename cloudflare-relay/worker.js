@@ -1650,6 +1650,25 @@ export class SentinelCoordinator {
             device: { ...device, installationId: undefined },
           });
         }
+        if (url.pathname === "/companion/unpair" && request.method === "POST") {
+          const deviceAuth = await companionDeviceAuthorised(request, env);
+          if (!deviceAuth) return json({ error: "This device is not paired." }, 401);
+          const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+          await coordinate(env, "installation:" + deviceAuth.installationId, "revoke", { deviceId: deviceAuth.deviceId, kind: "device" });
+          const mobileTokens = await env.SENTINEL_COMMANDS.list({ prefix: MOBILE_ACCESS_TOKEN_PREFIX, limit: 1000 });
+          await Promise.all([
+            env.SENTINEL_COMMANDS.delete(installationKey(deviceAuth.installationId, `${COMPANION_DEVICE_PREFIX}${deviceAuth.deviceId}`)),
+            env.SENTINEL_COMMANDS.delete(installationKey(deviceAuth.installationId, `${MOBILE_PERMISSION_PREFIX}${deviceAuth.deviceId}`)),
+            env.SENTINEL_COMMANDS.delete(`${COMPANION_TOKEN_PREFIX}${token}`),
+            ...mobileTokens.keys.map(async (key) => {
+              const value = await env.SENTINEL_COMMANDS.get(key.name, "json");
+              if (value?.installationId === deviceAuth.installationId && value?.deviceId === deviceAuth.deviceId) {
+                await env.SENTINEL_COMMANDS.delete(key.name);
+              }
+            }),
+          ]);
+          return json({ unpaired: true });
+        }
         if (url.pathname === "/companion/mobile-access/enrol" && request.method === "POST") {
           const deviceAuth = await companionDeviceAuthorised(request, env);
           if (!deviceAuth) return json({ error: "This device is not paired." }, 401);
