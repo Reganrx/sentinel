@@ -39,6 +39,7 @@ private struct SentinelPageView: View {
     @State private var weatherSection = 0
     @State private var travelSection = 0
     @State private var showHomeQuickReply = false
+    @State private var helpPresented = false
     var body: some View {
         ZStack {
             LinearGradient(colors: [Color(red: 0.015, green: 0.035, blue: 0.07), Color(red: 0.015, green: 0.13, blue: 0.19)], startPoint: .top, endPoint: .bottom).ignoresSafeArea()
@@ -54,6 +55,7 @@ private struct SentinelPageView: View {
         .fileImporter(isPresented: $importingFile, allowedContentTypes: [.data]) { result in
             guard case let .success(url) = result else { return }; let access = url.startAccessingSecurityScopedResource(); defer { if access { url.stopAccessingSecurityScopedResource() } }; guard let data = try? Data(contentsOf: url) else { return }; Task { await app.sendFile(data, filename: url.lastPathComponent) }
         }
+        .sheet(isPresented: $helpPresented) { SentinelMobileHelpView() }
     }
     @ViewBuilder private var content: some View {
         switch page {
@@ -79,7 +81,7 @@ private struct SentinelPageView: View {
     private var weather: some View { SentinelWeatherDashboard(section: $weatherSection) }
     private var notifications: some View { Card(title: "ACTIVITY", symbol: "bell.badge.fill") { Toggle("Unread only", isOn: $app.showUnreadOnly); ForEach(app.filteredActivity) { item in HStack(alignment: .top) { Image(systemName: item.symbol).foregroundStyle(.cyan); VStack(alignment: .leading) { Text(item.title).bold(); Text(item.detail).font(.caption).foregroundStyle(.secondary) }; Spacer(); if !item.isRead { Button { app.markActivityRead(item.id) } label: { Image(systemName: "checkmark.circle") } } } }; if app.unreadActivityCount > 0 { Button("Mark all as read") { app.markAllActivityRead() } } } }
     private var settings: some View { VStack(alignment: .leading, spacing: 16) {
-        Card(title: "SENTINEL CONTROL CENTRE", symbol: "slider.horizontal.3") { StatusRow("Status", app.status, good: app.cloudOnline); StatusRow("Native app", app.nativeVersion, good: true); StatusRow("Content", "v\(app.contentVersion)", good: true); HStack { Button("Check for updates") { Task { await app.checkForUpdates() } }.buttonStyle(.borderedProminent); Button("How to use") { app.selected = .home }.buttonStyle(.bordered) } }
+        Card(title: "SENTINEL CONTROL CENTRE", symbol: "slider.horizontal.3") { StatusRow("Status", app.status, good: app.cloudOnline); StatusRow("Native app", app.nativeVersion, good: true); StatusRow("Content", "v\(app.contentVersion)", good: true); HStack { Button("Check for updates") { Task { await app.checkForUpdates() } }.buttonStyle(.borderedProminent); Button("How to use") { helpPresented = true }.buttonStyle(.bordered) } }
         Card(title: "EXPERIENCE", symbol: "paintpalette.fill") { Picker("Accent colour", selection: Binding(get: { app.accentTheme }, set: { app.setAccentTheme($0) })) { ForEach(SentinelAccentTheme.allCases) { Text($0.rawValue).tag($0) } }.pickerStyle(.menu); Picker("Reactor animation", selection: Binding(get: { app.reactorAnimation }, set: { app.setReactorAnimation($0) })) { ForEach(SentinelReactorAnimation.allCases) { Text($0.rawValue).tag($0) } }.pickerStyle(.segmented); Text("Visible pages").font(.caption.bold()).foregroundStyle(.secondary); ForEach(SentinelPage.corePages.filter { $0 != .home && $0 != .settings }) { page in Toggle(page.rawValue, isOn: Binding(get: { app.visiblePageNames.contains(page.rawValue) }, set: { app.setPageVisible(page, visible: $0) })) } }
         Card(title: "VOICE & AUDIO", symbol: "waveform") { StatusRow("Talk with Sentinel", "cedar", good: true); Toggle("Spoken replies", isOn: $app.spokenResponses).onChange(of: app.spokenResponses) { _, enabled in app.setSpokenResponses(enabled) }; Text("Live conversations default to the iPhone speaker. Microphone and speech permissions remain under iOS control.").font(.caption).foregroundStyle(.secondary) }
         MobileServicesDiagnosticsPanel()
@@ -574,3 +576,32 @@ private struct Header: View { let page: SentinelPage; @EnvironmentObject private
 private struct Card<Content: View>: View { let title: String; let symbol: String; @EnvironmentObject private var app: SentinelAppModel; @ViewBuilder let content: Content; var body: some View { let accent = Color(uiColor: app.accentColor); VStack(alignment: .leading, spacing: 12) { Label(title, systemImage: symbol).font(.caption.bold()).tracking(1).foregroundStyle(accent); content }.frame(maxWidth: .infinity, alignment: .leading).padding(16).background(Color.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 20)).overlay(RoundedRectangle(cornerRadius: 20).stroke(accent.opacity(0.18))) } }
 private struct StatusRow: View { let label: String; let value: String; let good: Bool; init(_ label: String, _ value: String, good: Bool) { self.label = label; self.value = value; self.good = good }; var body: some View { HStack { Text(label); Spacer(); Text(value).foregroundStyle(good ? .green : .orange).multilineTextAlignment(.trailing) }.font(.subheadline) } }
 private struct SentinelLockView: View { @EnvironmentObject private var app: SentinelAppModel; var body: some View { ZStack { Color.black.opacity(0.96).ignoresSafeArea(); VStack(spacing: 20) { Image(systemName: "lock.shield.fill").font(.system(size: 54)).foregroundStyle(.cyan); Text("Sentinel Locked").font(.title2.bold()); Button("Unlock") { Task { await app.unlock() } }.buttonStyle(.borderedProminent).tint(.cyan) } } } }
+
+private struct SentinelMobileHelpView: View {
+    private struct HelpSection: Identifiable {
+        let id = UUID()
+        let title: String
+        let detail: String
+    }
+    @Environment(\.dismiss) private var dismiss
+    private let sections = [
+        HelpSection(title: "Chat and images", detail: "Ask Sentinel normally, attach a file or photo with the plus button, or request an image in plain English. Use History to reopen an earlier conversation."),
+        HelpSection(title: "Voice", detail: "The microphone sends one dictated message. Talk with Sentinel starts a live conversation; minimise its panel to move around the app without ending the session."),
+        HelpSection(title: "Weather and navigation", detail: "Weather uses the current location and approved mobile service access. Navigation can search nearby places, calculate a route and hand the journey to Apple Maps."),
+        HelpSection(title: "Travel", detail: "Save journeys and flights, review destination information, and keep readiness items together. Confirm important details with the airline or official travel guidance."),
+        HelpSection(title: "Desktop sync", detail: "Pair using the six-digit code from Sentinel Personal. Mobile service permissions are separate and never copy raw provider keys to the iPhone."),
+        HelpSection(title: "Updates and privacy", detail: "Native app updates arrive through TestFlight or the App Store. Sentinel content updates are checked separately. Face ID and iOS permissions remain under your control."),
+    ]
+    var body: some View {
+        NavigationStack {
+            List(sections) { section in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(section.title).font(.headline)
+                    Text(section.detail).font(.subheadline).foregroundStyle(.secondary)
+                }.padding(.vertical, 5)
+            }
+            .navigationTitle("How to use Sentinel")
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+        }.preferredColorScheme(.dark)
+    }
+}
