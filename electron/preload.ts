@@ -26,6 +26,12 @@ contextBridge.exposeInMainWorld("ipcRenderer", {
 });
 
 contextBridge.exposeInMainWorld("sentinelDesktop", {
+  exportConversation(input: { title: string; content: string; created: string; updated: string }) {
+    return ipcRenderer.invoke("sentinel:conversation-export", input) as Promise<{ path?: string; cancelled?: boolean }>;
+  },
+  integrationCommand(input: {id:string;commandId:string;deviceId:string;value:string}) {
+    return ipcRenderer.invoke('sentinel:integration-command',input);
+  },
   shutdown() {
     return ipcRenderer.invoke("sentinel:shutdown") as Promise<{
       closing: true;
@@ -134,7 +140,10 @@ contextBridge.exposeInMainWorld("sentinelDesktop", {
     return ipcRenderer.invoke("sentinel:xcode-cloud-configure", developerToken, issuerId, keyId, workflowId) as Promise<{ configured: boolean; connected?: boolean; workflowId?: string; cancelled?: boolean }>;
   },
   xcodeCloudStatus(developerToken: string) {
-    return ipcRenderer.invoke("sentinel:xcode-cloud-status", developerToken) as Promise<{ configured: boolean; connected: boolean; workflowId?: string; workflowName?: string; latestRun?: { id: string; executionProgress?: string; completionStatus?: string; createdDate?: string; startedDate?: string; finishedDate?: string } | null; error?: string }>;
+    return ipcRenderer.invoke("sentinel:xcode-cloud-status", developerToken) as Promise<{ configured: boolean; connected: boolean; workflowId?: string; workflowName?: string; latestRun?: { id: string; executionProgress?: string; completionStatus?: string; createdDate?: string; startedDate?: string; finishedDate?: string } | null; testFlight?: { state: "waiting" | "assigned"; buildNumber?: string; groupName?: string; message: string }; error?: string }>;
+  },
+  disconnectXcodeCloud(developerToken: string) {
+    return ipcRenderer.invoke("sentinel:xcode-cloud-disconnect", developerToken) as Promise<{ disconnected: boolean }>;
   },
   startXcodeCloudBuild(developerToken: string) {
     return ipcRenderer.invoke("sentinel:xcode-cloud-start", developerToken) as Promise<{ started: boolean; runId?: string; createdDate?: string }>;

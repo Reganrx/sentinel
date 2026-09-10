@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import StartupScenes from "../../components/StartupScenes";
 import {
   Bell,
   BookOpen,
@@ -66,6 +67,7 @@ import { availableNavigation as navigation } from "../../navigation/navigation";
 import { API_URL } from "../../services/api";
 import { setPageVisible, useHiddenPages } from "../../services/pageVisibility";
 import { clearWakeActivity, defaultSleepPhrases, defaultWakePhrases, getWakeActivity, SLEEP_PHRASES_KEY, WAKE_ACTIVITY_KEY, WAKE_ENABLED_KEY, WAKE_PHRASES_KEY, WAKE_SENSITIVITY_KEY, WAKE_TONES_KEY, type WakeActivity } from "../../services/wakeVoice";
+import { useMemory } from "../../memory/MemoryContext";
 
 type Notice = { type: "success" | "error"; text: string } | null;
 type AccentTheme = "blue" | "emerald" | "amber" | "purple" | "crimson" | "ice" | "teal" | "magenta" | "indigo";
@@ -125,6 +127,7 @@ type DiagnosticResult = {
 };
 
 export default function SettingsView() {
+  const { openMemory } = useMemory();
   const [isDeveloperUnlocked, setIsDeveloperUnlocked] = useState(false);
   const [password, setPassword] = useState("");
   const [isChecking, setIsChecking] = useState(true);
@@ -145,6 +148,8 @@ export default function SettingsView() {
   const hiddenPages = useHiddenPages();
   const [visiblePagesOpen, setVisiblePagesOpen] = useState(false);
   const [experienceOpen, setExperienceOpen] = useState(false);
+  const [companionOpen, setCompanionOpen] = useState(false);
+  const [voicePrivacyOpen, setVoicePrivacyOpen] = useState(false);
   const [wakeEnabled, setWakeEnabled] = useState(() => localStorage.getItem(WAKE_ENABLED_KEY) === "true");
   const [wakePhrases, setWakePhrases] = useState(() => localStorage.getItem(WAKE_PHRASES_KEY) ?? defaultWakePhrases.join(", "));
   const [sleepPhrases, setSleepPhrases] = useState(() => localStorage.getItem(SLEEP_PHRASES_KEY) ?? defaultSleepPhrases.join(", "));
@@ -313,7 +318,20 @@ export default function SettingsView() {
 
   const refreshXcodeCloudStatus = async () => {
     if (!window.sentinelDesktop || !isDeveloperUnlocked) return;
-    try { setXcodeCloudStatus(await window.sentinelDesktop.xcodeCloudStatus(getDeveloperToken())); }
+    try {
+      const status = await window.sentinelDesktop.xcodeCloudStatus(getDeveloperToken());
+      setXcodeCloudStatus(status);
+      if (releaseBuildStatus.type === "building" && status.latestRun?.executionProgress === "COMPLETE") {
+        const succeeded = status.latestRun.completionStatus === "SUCCEEDED";
+        const distributed = status.testFlight?.state === "assigned";
+        setReleaseBuildStatus({
+          type: succeeded ? (distributed ? "success" : "building") : "error",
+          text: succeeded
+            ? status.testFlight?.message || "Xcode Cloud finished successfully. Sentinel is waiting for Apple to process and distribute the TestFlight build."
+            : `Xcode Cloud finished with ${status.latestRun.completionStatus || "an unsuccessful result"}. Open the run in App Store Connect for its build log.`,
+        });
+      }
+    }
     catch (error) { setXcodeCloudStatus({ configured: true, connected: false, error: error instanceof Error ? error.message : "Unable to reach Xcode Cloud." }); }
   };
 
@@ -345,6 +363,18 @@ export default function SettingsView() {
     finally { setIsXcodeCloudBusy(false); }
   };
 
+  const disconnectXcodeCloud = async () => {
+    if (!window.sentinelDesktop || !window.confirm("Remove the encrypted Xcode Cloud connection from this PC? You can reconnect with the same or a new .p8 key.")) return;
+    setIsXcodeCloudBusy(true);
+    try {
+      await window.sentinelDesktop.disconnectXcodeCloud(getDeveloperToken());
+      setXcodeCloudStatus({ configured: false, connected: false });
+      setNotice({ type: "success", text: "Xcode Cloud disconnected from this PC. Apple credentials were removed from Sentinel." });
+    } catch (error) {
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "Unable to disconnect Xcode Cloud." });
+    } finally { setIsXcodeCloudBusy(false); }
+  };
+
   useEffect(() => {
     void refreshUpdateStatus();
   }, []);
@@ -354,6 +384,13 @@ export default function SettingsView() {
     // current secure token at invocation time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDeveloperUnlocked]);
+  useEffect(() => {
+    if (!isDeveloperUnlocked || releaseBuildStatus.type !== "building" || !xcodeCloudStatus?.connected) return;
+    const timer = window.setInterval(() => { void refreshXcodeCloudStatus(); }, 30_000);
+    return () => window.clearInterval(timer);
+    // Poll only while a build started from this session is active.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDeveloperUnlocked, releaseBuildStatus.type, xcodeCloudStatus?.connected]);
   useEffect(() => {
     if (updateStatus?.edition !== "personal" || !window.sentinelDesktop) return;
     window.sentinelDesktop.updateReleaseCatalog().then(({ modules, blocked }) => {
@@ -393,16 +430,20 @@ export default function SettingsView() {
   const releasePreflight = (() => {
     const errors: string[] = [];
     const checks: string[] = [];
+    if (releaseDelivery === "native") {
+      if (releaseTarget === "desktop") errors.push("TestFlight delivery requires iPhone or Both as the target.");
+      if (!xcodeCloudStatus?.connected && !testFlightBuild.trim()) errors.push("Connect Xcode Cloud or enter an existing TestFlight build number.");
+      if (xcodeCloudStatus?.connected) checks.push("Xcode Cloud automation is connected.");
+      else if (testFlightBuild.trim()) checks.push(`TestFlight build ${testFlightBuild.trim()} recorded.`);
+      if (xcodeCloudStatus?.latestRun?.id) checks.push(`Latest Xcode Cloud run ${xcodeCloudStatus.latestRun.id} is visible.`);
+      return { errors, checks };
+    }
     if (!/^\d+(\.\d+){1,3}([-.][A-Za-z0-9.]+)?$/.test(updateVersion.trim())) errors.push("Enter a valid newer release version.");
     else checks.push(`Version ${updateVersion.trim()} is valid.`);
     if (!releaseNotes.trim()) errors.push("Add release notes before publishing.");
     else checks.push("Release notes are present.");
     if (releaseDelivery === "content" && resolvedReleaseModules.length === 0) errors.push("Select at least one compatible module.");
     else if (releaseDelivery === "content") checks.push(`${resolvedReleaseModules.length} approved content modules selected.`);
-    if (releaseDelivery === "native" && releaseTarget === "desktop") errors.push("TestFlight delivery requires iPhone or Both as the target.");
-    if (releaseDelivery === "native" && !xcodeCloudStatus?.connected && !testFlightBuild.trim()) errors.push("Connect Xcode Cloud or enter an existing TestFlight build number.");
-    if (releaseDelivery === "native" && xcodeCloudStatus?.connected) checks.push("Xcode Cloud automation is connected.");
-    else if (releaseDelivery === "native" && testFlightBuild.trim()) checks.push(`TestFlight build ${testFlightBuild.trim()} recorded.`);
     if (releaseAudience === "test" && !selectedTestInstallation) errors.push("Choose a registered target device for the test release.");
     else if (releaseAudience === "test") checks.push(`Test release restricted to ${selectedTestInstallation?.deviceName}.`);
     if (!updateStatus?.signingKeyReady) errors.push("Personal signing authority is not ready.");
@@ -787,7 +828,10 @@ export default function SettingsView() {
         throw new Error(result.error ?? "Sentinel could not be reset.");
       localStorage.clear();
       sessionStorage.clear();
-      await window.sentinelDesktop?.restart();
+      setResetOpen(false);
+      setResetPassword("");
+      setResetConfirmation("");
+      window.location.reload();
     } catch (error) {
       setNotice({
         type: "error",
@@ -797,7 +841,6 @@ export default function SettingsView() {
             : "Sentinel could not be reset.",
       });
       setResetting(false);
-      setResetOpen(false);
     }
   }
 
@@ -1164,12 +1207,9 @@ export default function SettingsView() {
             <div className="appearance-controls"><label><span>Accent intensity</span><input type="range" min="45" max="100" value={accentIntensity} onChange={(event) => setAccentIntensity(Number(event.target.value))} /><strong>{accentIntensity}%</strong></label><label><span>Animation level</span><select value={motionLevel} onChange={(event) => setMotionLevel(event.target.value as MotionLevel)}><option value="full">Full</option><option value="reduced">Reduced</option><option value="off">Off</option></select></label></div>
             <small className="appearance-safety"><ShieldCheck size={14} /> Safety colours remain fixed: green means healthy, amber means warning and red means critical.</small>
           </div>
-          <SettingToggle
-            icon={<Play />}
-            title="Startup sequence"
-            detail="Play the cinematic startup sequence when Sentinel opens. Turn this off to open directly on Home."
-            checked={startupSequence}
-            onChange={(value) =>
+          <StartupScenes
+            enabled={startupSequence}
+            onEnabled={(value) =>
               updatePreference(
                 "sentinel-startup-sequence",
                 value,
@@ -1285,6 +1325,12 @@ export default function SettingsView() {
         </section>
 
         {IS_PERSONAL_EDITION && (
+        <section className="settings-card settings-card--wide settings-accordion companion-accordion">
+          <button type="button" className="settings-accordion-heading" aria-expanded={companionOpen} aria-controls="companion-settings-content" onClick={() => setCompanionOpen(value => !value)}>
+            <span><Link2 /><span><strong>Companion Sync</strong><small>Pair trusted iPhones and move text or files between your devices.</small></span></span>
+            <span>{companionStatus?.online ? "Sync online" : companionStatus?.configured ? "Awaiting connection" : "Disabled"}<ChevronDown className={companionOpen ? "is-open" : ""} /></span>
+          </button>
+          <div id="companion-settings-content" className="settings-accordion-content" hidden={!companionOpen}>
         <section className="settings-card settings-card--wide companion-card">
           <div className="settings-card-title">
             <Link2 />
@@ -1443,14 +1489,16 @@ export default function SettingsView() {
             </div>
           )}
         </section>
+          </div>
+        </section>
         )}
 
-        <section className="settings-card settings-card--wide">
-          <div className="settings-card-title">
-            <Ear />
-            <div><h2>Always listening & voice privacy</h2><p>Configure wake phrases, standby sensitivity, confirmation tones and microphone activity.</p></div>
-            <div className={`developer-state ${wakeEnabled ? "developer-state--open" : ""}`}>{wakeEnabled ? "Standby active" : "Off"}</div>
-          </div>
+        <section className="settings-card settings-card--wide settings-accordion voice-privacy-accordion">
+          <button type="button" className="settings-accordion-heading" aria-expanded={voicePrivacyOpen} aria-controls="voice-privacy-settings-content" onClick={() => setVoicePrivacyOpen(value => !value)}>
+            <span><Ear /><span><strong>Always listening & voice privacy</strong><small>Configure wake phrases, standby sensitivity, confirmation tones and microphone activity.</small></span></span>
+            <span>{wakeEnabled ? "Standby active" : "Off"}<ChevronDown className={voicePrivacyOpen ? "is-open" : ""} /></span>
+          </button>
+          <div id="voice-privacy-settings-content" className="settings-accordion-content" hidden={!voicePrivacyOpen}>
           <div className="wake-voice-grid">
             <label className="wake-voice-switch"><span><strong>Hey Sentinel standby</strong><small>The microphone waits for a wake phrase; detected speech is transiently transcribed and raw audio is not saved.</small></span><input type="checkbox" checked={wakeEnabled} onChange={(event) => { const enabled = event.target.checked; setWakeEnabled(enabled); localStorage.setItem(WAKE_ENABLED_KEY, String(enabled)); window.dispatchEvent(new Event("sentinel:wake-settings-change")); }} /></label>
             <label><strong>Wake phrases</strong><small>Separate alternatives with commas (maximum six).</small><input value={wakePhrases} onChange={(event) => setWakePhrases(event.target.value)} onBlur={() => window.dispatchEvent(new Event("sentinel:wake-settings-change"))} /></label>
@@ -1461,6 +1509,7 @@ export default function SettingsView() {
           <div className="wake-privacy-history">
             <header><div><strong>Microphone activity</strong><small>State changes only—no audio, transcript content, passwords or tokens.</small></div><button className="settings-button settings-button--secondary" disabled={!wakeActivity.length} onClick={() => { clearWakeActivity(); localStorage.removeItem(WAKE_ACTIVITY_KEY); }}><Trash2 size={15} /> Clear</button></header>
             {wakeActivity.length ? <div>{wakeActivity.slice(0, 8).map((item) => <article key={item.id}><i /><span><strong>{item.label}</strong><small>{new Date(item.at).toLocaleString("en-GB")}</small></span></article>)}</div> : <p>No wake-listener activity recorded yet.</p>}
+          </div>
           </div>
         </section>
 
@@ -1755,6 +1804,7 @@ export default function SettingsView() {
                             <div><strong>{xcodeCloudStatus.latestRun?.executionProgress || xcodeCloudStatus.latestRun?.completionStatus || "Ready"}</strong><small>{xcodeCloudStatus.latestRun?.id ? `Latest run ${xcodeCloudStatus.latestRun.id}` : "No previous build found"}</small></div>
                             <button type="button" className="settings-button settings-button--secondary" disabled={isXcodeCloudBusy} onClick={() => void refreshXcodeCloudStatus()}><RefreshCw size={16} /> Refresh</button>
                             <button type="button" className="settings-button" disabled={isXcodeCloudBusy || releasePreflight.errors.length > 0} onClick={() => void startXcodeCloudBuild()}><Play size={16} /> Start TestFlight build</button>
+                            <button type="button" className="settings-button settings-button--secondary" disabled={isXcodeCloudBusy} onClick={() => void disconnectXcodeCloud()}><KeyRound size={16} /> Change connection</button>
                           </div>}
                           {xcodeCloudStatus?.error && <small className="companion-status-error">{xcodeCloudStatus.error}</small>}
                           <div className="testflight-fallback"><label>Existing build number<input value={testFlightBuild} onChange={event => setTestFlightBuild(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="Optional manual build" /></label><label>TestFlight link<input value={testFlightUrl} onChange={event => setTestFlightUrl(event.target.value)} placeholder="https://testflight.apple.com/join/..." /></label></div>
@@ -2070,7 +2120,7 @@ export default function SettingsView() {
               </p>
             </div>
           </div>
-          <button className="settings-link">
+          <button className="settings-link" onClick={openMemory}>
             Manage saved memory <ChevronRight size={17} />
           </button>
         </section>
@@ -2159,11 +2209,11 @@ function SentinelGuide({ onClose }: { onClose: () => void }) {
   const sections = [
     {
       title: "1. First run and Core setup",
-      text: "Open Settings → Setup Centre → Core setup and enter your name. Add only the providers you intend to use: OpenAI powers Sentinel AI, Chat, voice transcription and realtime conversation; Google Maps powers maps, routes and places; WeatherAPI powers forecasts; FlyStack powers scheduled-flight information; OpenSky powers live aircraft; and the managed Cloudflare relay supports approved remote and mobile services. Use Get your key where offered, save Core setup, then run Quick self-diagnosis. Configured means a credential is stored securely on this computer; it does not guarantee that the provider is currently reachable.",
+      text: "Open Settings → Setup Centre → Core setup and enter your name. Sentinel Personal has eight core services: OpenAI for Sentinel AI, Chat, voice transcription and image generation; ElevenLabs for sound-effect generation from Chat; Google Maps for maps, routes and places; WeatherAPI for forecasts; FlyStack for scheduled-flight information; Govee for supported smart lighting; OpenSky for live aircraft; and Cloudflare Relay for approved remote, companion and Alexa services. ElevenLabs is Personal-only and is not copied into Base releases. On Sentinel Base, enter the one-time Cloudflare setup code generated by Sentinel Personal—never the owner's Cloudflare secret. Use Get your key where offered, save Core setup, then run Quick self-diagnosis. Configured means a credential is stored securely on this computer; it does not guarantee that the provider is currently reachable.",
     },
     {
       title: "2. Modules and Integration Builder",
-      text: "Use Setup Centre → Modules for Philips Hue, Govee, Amazon Alexa and Ring, and complete the dedicated connection panel for each one. Use Integration Builder only for a provider Sentinel does not already include. Smart-home integrations appear in Mission Control → Automation; camera, alarm, doorbell, lock and monitoring integrations appear in Mission Control → Security. Removing a module hides its controls but does not delete the provider account or its devices. A stored key can authenticate a service, but control is available only when that provider exposes a compatible API.",
+      text: "Use dedicated connection panels for built-in providers. In Sentinel Personal or Base, unlock Developer Mode and open Integration Builder to connect another HTTPS JSON API. Enter the service name, choose Automation, Security or Installed modules, explain what Sentinel should do, and store the credential separately. Paste provider documentation without keys or passwords and Sentinel AI can prepare a constrained mapping draft; it never receives the credential and does not edit source code. Review Technical mapping before saving. Test API response checks JSON, not physical device state. Discover devices before Run; commands require native desktop approval. OAuth, custom signing, SDKs and local software need a dedicated reviewed integration rather than the generic wizard.",
     },
     {
       title: "3. Alexa, Ring, Hue and Govee",
@@ -2183,7 +2233,7 @@ function SentinelGuide({ onClose }: { onClose: () => void }) {
     },
     {
       title: "7. Chat, memory and attachments",
-      text: "Chat keeps named conversations and supports text, one-shot voice input, attachments and a Memory manager. Use New Chat to separate subjects, the conversation menu to rename or delete, the paperclip to attach a supported file, the microphone to dictate one message, the brain to review memory, and the waveform for live conversation. Sentinel can remember useful preferences and project context when memory is enabled; review or remove saved memories from the Memory manager. Do not place passwords, API keys, setup codes or private tokens in a conversation.",
+      text: "Chat keeps named conversations and supports text, one-shot voice input, attachments and a Memory manager. Use New Chat to separate subjects, the conversation menu to rename or delete, the paperclip to attach a supported file, the microphone to dictate one message, the brain to review memory, and the waveform for live conversation. Attach an XLSX, CSV or TSV file to analyse its sheets, formulas and data quality, or ask Sentinel to build or improve an Excel workbook and download the finished XLSX from Chat. Sentinel can remember useful preferences and project context when memory is enabled; review or remove saved memories from the Memory manager. Do not place passwords, API keys, setup codes or private tokens in a conversation.",
     },
     {
       title: "8. Developer Mode and Codex Developer",
@@ -2211,7 +2261,7 @@ function SentinelGuide({ onClose }: { onClose: () => void }) {
     },
     {
       title: "14. Weather",
-      text: "Today shows current conditions, practical weather intelligence and the next hourly periods. Weekly forecast displays every day supplied by the weather provider; select a card for its hourly outlook, then use Close or select outside the panel. Weather radar centres on your location and distinguishes observed frames from forecast frames, with playback, current-time control, intensity guidance and a short forward outlook. Radar and forecast sources can update at different times, so small timing differences are normal.",
+      text: "Today shows current conditions and hourly weather. Weekly forecast shows provider-supplied days; select a day for its hourly outlook. Weather radar uses WeatherAPI precipitation forecast maps, not historical radar: seven hourly frames from the current hour to six hours ahead. Now returns to the current-hour forecast; Play forecast advances forward; Refresh forecast reloads the timeline. Times are shown in your local timezone. Forecast tiles have limited spatial detail when zoomed in, and missing tiles show an error rather than implying dry weather.",
     },
     {
       title: "15. Network Centre and System",
@@ -2219,7 +2269,7 @@ function SentinelGuide({ onClose }: { onClose: () => void }) {
     },
     {
       title: "16. Audio Control and AI DJ",
-      text: "Audio Control manages supported Windows playback devices, system volume and enabled music services. AI DJ can use local music and, where configured, control an approved DJ application such as VirtualDJ for decks, synchronisation, transitions, effects and Automix. TIDAL DJ remains authenticated inside the licensed DJ application; Spotify and other streaming catalogues remain subject to their provider restrictions and cannot be downloaded or remixed outside permitted integrations. Confirm the bridge before sending performance commands.",
+      text: "Audio Control manages supported Windows playback devices, system volume and enabled music services. AI DJ is Sentinel's self-contained local mixer: choose a folder containing music files you own, select a show personality, then Sentinel manages two decks, automatic transitions and effects. Spotify and other streaming catalogues remain playback-only and subject to their provider restrictions; Sentinel does not download or remix protected streams.",
     },
     {
       title: "17. Concierge and express approval",

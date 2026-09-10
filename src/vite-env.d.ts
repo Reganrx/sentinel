@@ -2,6 +2,7 @@
 
 interface Window {
   sentinelDesktop?: {
+    exportConversation: (input: { title: string; content: string; created: string; updated: string }) => Promise<{ path?: string; cancelled?: boolean }>;
     shutdown: () => Promise<{ closing: true }>;
     restart: () => Promise<{ restarting: true }>;
     mediaStatus: () => Promise<{
@@ -19,6 +20,7 @@ interface Window {
         | "volumeUp",
     ) => Promise<{ sent: true; command: string }>;
     openMediaService: (service: string) => Promise<{ opened: true }>;
+    integrationCommand: (input: {id:string;commandId:string;deviceId:string;value:string}) => Promise<{cancelled?:boolean;success?:boolean;status?:number;accepted?:boolean;verified?:boolean}>;
     virtualDJStatus: () => Promise<{ installed: boolean; running: boolean; executable: string | null; tidalConfigured: boolean; bridge: "connected" | "not-connected"; bridgeConfigured: boolean; bridgePort: number; bridgeError: string; sampledAt?: string; crossfader?: string; decks: Array<{ deck: string; title: string; artist: string; bpm: string; key: string; playing: string; elapsed?: string; duration?: string }> }>;
     launchVirtualDJ: () => Promise<{ launched: boolean; downloadOpened: boolean; focused?: boolean }>;
     configureVirtualDJBridge: (port: number, password: string) => Promise<{ saved: boolean; configured: boolean; connected: boolean; port: number; error: string }>;
@@ -75,7 +77,8 @@ interface Window {
       blocked: string[];
     }>;
     configureXcodeCloud: (developerToken: string, issuerId: string, keyId: string, workflowId: string) => Promise<{ configured: boolean; connected?: boolean; workflowId?: string; cancelled?: boolean }>;
-    xcodeCloudStatus: (developerToken: string) => Promise<{ configured: boolean; connected: boolean; workflowId?: string; workflowName?: string; latestRun?: { id: string; executionProgress?: string; completionStatus?: string; createdDate?: string; startedDate?: string; finishedDate?: string } | null; error?: string }>;
+    xcodeCloudStatus: (developerToken: string) => Promise<{ configured: boolean; connected: boolean; workflowId?: string; workflowName?: string; latestRun?: { id: string; executionProgress?: string; completionStatus?: string; createdDate?: string; startedDate?: string; finishedDate?: string } | null; testFlight?: { state: "waiting" | "assigned"; buildNumber?: string; groupName?: string; message: string }; error?: string }>;
+    disconnectXcodeCloud: (developerToken: string) => Promise<{ disconnected: boolean }>;
     startXcodeCloudBuild: (developerToken: string) => Promise<{ started: boolean; runId?: string; createdDate?: string }>;
     createUpdateSigningKey: (
       developerToken: string,

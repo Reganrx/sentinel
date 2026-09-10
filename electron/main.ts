@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, safeStorage, session, shell } from "electron";
+import { registerEchoBridge } from './echoBridge';
 
 import path from "path";
 import { ChildProcess, spawn } from "child_process";
@@ -11,11 +12,13 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from "fs";
 import { fileURLToPath } from "url";
 import {
   createHash,
+  createHmac,
   createSign,
   createVerify,
   generateKeyPairSync,
@@ -32,6 +35,7 @@ const __dirname = path.dirname(__filename);
 let mainWindow: BrowserWindow | null = null;
 let backendProcess: ChildProcess | null = null;
 const backendApiToken = randomBytes(32).toString("base64url");
+const integrationApprovalSecret = randomBytes(32).toString("base64url");
 
 // Packaged Windows apps do not always retain a valid stdout/stderr pipe. A
 // harmless console message must never terminate Sentinel with EPIPE after the
@@ -265,20 +269,32 @@ function virtualDJBridgeToken(config: VirtualDJBridgeConfig) {
   return safeStorage.decryptString(Buffer.from(config.encryptedToken, "base64"));
 }
 
-async function virtualDJRequest(mode: "query" | "execute", script: string) {
+let virtualDJQueue: Promise<unknown> = Promise.resolve();
+function virtualDJRequest(mode: "query" | "execute", script: string): Promise<string> {
+  const request = virtualDJQueue.then(() => performVirtualDJRequest(mode, script));
+  virtualDJQueue = request.catch(() => undefined);
+  return request;
+}
+
+async function performVirtualDJRequest(mode: "query" | "execute", script: string) {
   const config = readVirtualDJBridgeConfig();
   if (!config) throw new Error("VirtualDJ Network Control is not configured in Sentinel.");
   const token = virtualDJBridgeToken(config);
   const response = await fetch(`http://127.0.0.1:${config.port}/${mode}?script=${encodeURIComponent(script)}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     signal: AbortSignal.timeout(2200),
-  });
+  }).catch(() => { throw new Error(`Cannot reach VirtualDJ Network Control on port ${config.port}. Check that VirtualDJ is open and Network Control is enabled in Master Effects, then retry.`); });
   const text = await response.text();
   if (!response.ok) throw new Error(response.status === 401 ? "VirtualDJ rejected the bridge password." : `VirtualDJ Network Control returned ${response.status}.`);
   return text.trim();
 }
 
-async function virtualDJBridgeStatus() {
+let virtualDJStatusPending: ReturnType<typeof readVirtualDJBridgeStatus> | undefined;
+function virtualDJBridgeStatus() {
+  return virtualDJStatusPending ??= readVirtualDJBridgeStatus().finally(() => { virtualDJStatusPending = undefined; });
+}
+
+async function readVirtualDJBridgeStatus() {
   const config = readVirtualDJBridgeConfig();
   if (!config) return { configured: false, connected: false, port: 8080, decks: [] as Array<Record<string, string>>, error: "Install and configure VirtualDJ Network Control." };
   try {
@@ -509,6 +525,7 @@ const RELEASE_MODULES: ReleaseModule[] = [
   { id: "integrations", label: "Base integrations", description: "Base-safe provider modules and connection framework.", group: "Integrations", dependencies: ["core"], risk: "high" },
   { id: "setup", label: "Base setup", description: "First-run setup, API keys and user integration builder.", group: "Integrations", dependencies: ["core", "integrations"], risk: "high" },
   { id: "companion-sync", label: "Mobile Services & Sync", description: "Base-safe pairing, service permissions, reliability diagnostics, live Talk contracts, trusted devices, clipboard sharing and secure file handoff.", group: "Integrations", dependencies: ["core", "setup"], risk: "high" },
+  { id: "echo-account-control", label: "Experimental Echo Account Control", description: "Personal-only Amazon account discovery, Echo volume and routine control. Retained in the release catalogue so it can be promoted to Base after approval.", group: "Integrations", dependencies: ["core", "integrations", "security"], risk: "high", personalOnly: true },
 ];
 
 const releaseCatalogAuditFile = () =>
@@ -692,6 +709,7 @@ function bootstrapBaseUpdateAuthority() {
 async function latestCloudRelease() {
   const response = await fetch(`${managedUpdateEndpoint()}/v1/releases/latest?platform=desktop&installationId=${encodeURIComponent(baseInstallationIdentity())}`, {
     headers: { Accept: "application/json", "X-Sentinel-Registration": baseRegistrationSecret() },
+    signal: AbortSignal.timeout(10_000),
   });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`The update service returned ${response.status}.`);
@@ -736,6 +754,7 @@ async function registerBaseInstallation() {
         updateChannel: "stable",
         deviceName: hostname(),
       }),
+      signal: AbortSignal.timeout(10_000),
     });
   } catch (error) {
     console.warn("Base installation registration deferred:", error);
@@ -791,14 +810,61 @@ async function appStoreConnectRequest(config: XcodeCloudConfig, pathname: string
   const response = await fetch(`https://api.appstoreconnect.apple.com${pathname}`, {
     ...init,
     headers: { Authorization: `Bearer ${appStoreConnectToken(config)}`, Accept: "application/json", ...(init.headers || {}) },
+    signal: init.signal ?? AbortSignal.timeout(20_000),
   });
   const text = await response.text();
-  const body = text ? JSON.parse(text) : {};
+  let body: any = {};
+  if (text) {
+    try { body = JSON.parse(text); }
+    catch { body = {}; }
+  }
   if (!response.ok) {
     const detail = body?.errors?.[0]?.detail || body?.errors?.[0]?.title || `App Store Connect returned ${response.status}.`;
     throw new Error(String(detail).slice(0, 300));
   }
   return body;
+}
+
+type TestFlightDistribution = {
+  state: "waiting" | "assigned";
+  buildNumber?: string;
+  groupName?: string;
+  message: string;
+};
+
+async function ensureLatestSentinelTestFlightDistribution(config: XcodeCloudConfig, runStartedDate?: string): Promise<TestFlightDistribution> {
+  const apps = await appStoreConnectRequest(config, "/v1/apps?filter[bundleId]=uk.co.sentinel.base&limit=1");
+  const appId = apps?.data?.[0]?.id;
+  if (!appId) throw new Error("SentinelBase was not found in App Store Connect.");
+
+  const [groups, builds] = await Promise.all([
+    appStoreConnectRequest(config, `/v1/apps/${encodeURIComponent(appId)}/betaGroups?limit=50`),
+    appStoreConnectRequest(config, `/v1/builds?filter[app]=${encodeURIComponent(appId)}&sort=-uploadedDate&limit=20`),
+  ]);
+  const group = (groups?.data || []).find((item: any) => item?.attributes?.isInternalGroup === true)
+    || (groups?.data || []).find((item: any) => /internal/i.test(String(item?.attributes?.name || "")));
+  if (!group?.id) throw new Error("Create an internal TestFlight tester group before starting a release.");
+
+  const runStart = Date.parse(runStartedDate || "") || 0;
+  const build = (builds?.data || []).find((item: any) => {
+    const uploaded = Date.parse(item?.attributes?.uploadedDate || "") || 0;
+    return item?.attributes?.processingState === "VALID" && (!runStart || uploaded >= runStart - 15 * 60_000);
+  });
+  if (!build?.id) return { state: "waiting", message: "Xcode Cloud succeeded. Waiting for Apple to finish processing the new TestFlight build." };
+
+  const assigned = await appStoreConnectRequest(config, `/v1/betaGroups/${encodeURIComponent(group.id)}/builds?limit=100`);
+  if (!(assigned?.data || []).some((item: any) => item?.id === build.id)) {
+    await appStoreConnectRequest(config, `/v1/betaGroups/${encodeURIComponent(group.id)}/relationships/builds`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: [{ type: "builds", id: build.id }] }),
+    });
+  }
+  const verified = await appStoreConnectRequest(config, `/v1/betaGroups/${encodeURIComponent(group.id)}/builds?limit=100`);
+  if (!(verified?.data || []).some((item: any) => item?.id === build.id)) throw new Error("Apple accepted the build but did not confirm its internal tester assignment.");
+  const buildNumber = String(build.attributes?.version || "");
+  const groupName = String(group.attributes?.name || "Internal Testers");
+  return { state: "assigned", buildNumber, groupName, message: `TestFlight build ${buildNumber} is available to ${groupName}.` };
 }
 
 function validatePublisherEndpoint(value: unknown) {
@@ -1090,6 +1156,8 @@ function startPackagedBackend() {
     SENTINEL_SOURCE_ROOT: developerSourceRoot,
     SENTINEL_EDITION: isBaseEdition() ? "base" : "personal",
     SENTINEL_LOCAL_API_TOKEN: backendApiToken,
+    SENTINEL_INTEGRATION_APPROVAL_SECRET: integrationApprovalSecret,
+    SENTINEL_CONFIG_PATH: personalEnvFile(),
   };
   if (isBaseEdition()) backendEnv.SENTINEL_DATA_DIR = personalConfigDirectory();
   if (backendRuntime === process.execPath)
@@ -1190,6 +1258,27 @@ async function createWindow(showBootSurface = false) {
     },
   });
 
+  // Provider sites frequently block or poorly support embedded Electron
+  // windows. Send user-requested web handoffs to the system browser instead:
+  // this avoids the long white child-window flash and preserves the browser's
+  // normal cookies, security indicators and compatibility.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+        void shell.openExternal(parsed.toString()).catch((error) => {
+          writeRuntimeLog("error", "External website failed to open", {
+            host: parsed.hostname,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      }
+    } catch {
+      writeRuntimeLog("info", "Blocked invalid external website address");
+    }
+    return { action: "deny" };
+  });
+
   if (showBootSurface) {
     const bootHtml = `<!doctype html><meta charset="utf-8"><title>Sentinel</title><style>html,body{width:100%;height:100%;margin:0;overflow:hidden;background:radial-gradient(circle at 50% 45%,#0a3552,#071326 36%,#030914 100%);font-family:Segoe UI,sans-serif;color:#dffbff}.boot{height:100%;display:grid;place-items:center}.core{position:relative;width:170px;aspect-ratio:1;border:1px solid rgba(100,224,255,.4);border-radius:50%;box-shadow:inset 0 0 45px rgba(50,190,255,.2),0 0 40px rgba(50,190,255,.2);animation:r 1.1s linear infinite}.core:before,.core:after{content:'';position:absolute;border:1px dashed rgba(125,230,255,.34);border-radius:50%}.core:before{inset:18px}.core:after{inset:48px}.dot{position:absolute;top:6px;left:80px;width:11px;height:11px;border-radius:50%;background:#eaffff;box-shadow:0 0 18px 6px #43d8ff}.copy{position:absolute;top:calc(50% + 120px);left:0;right:0;text-align:center}.copy span{display:block;color:#70dffa;font-size:11px;font-weight:800;letter-spacing:.24em}.copy strong{display:block;margin-top:11px;color:white;font-size:18px;letter-spacing:.16em;text-shadow:0 0 20px rgba(97,224,255,.65)}@keyframes r{to{transform:rotate(360deg)}}</style><div class="boot"><div class="core"><i class="dot"></i></div><div class="copy"><span>SENTINEL OS · BOOT PROTOCOL</span><strong>INITIALISING CORE SERVICES</strong></div></div>`;
     void bootHtml;
@@ -1240,6 +1329,7 @@ configureGeolocationKey();
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 
 app.whenReady().then(async () => {
+  if (!isBaseEdition()) registerEchoBridge(() => mainWindow);
   if (!hasSingleInstanceLock) return;
   session.defaultSession.webRequest.onBeforeSendHeaders(
     {
@@ -1275,6 +1365,27 @@ app.whenReady().then(async () => {
     return { restarting: true };
   });
 
+  ipcMain.handle("sentinel:conversation-export", async (event, input: unknown) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) {
+      throw new Error("Untrusted conversation export source.");
+    }
+    const value = input && typeof input === "object" ? input as Record<string, unknown> : {};
+    const title = String(value.title ?? "Conversation").trim().slice(0, 120) || "Conversation";
+    const content = String(value.content ?? "").slice(0, 2_000_000);
+    if (!content.trim()) throw new Error("This conversation has no content to export.");
+    const forbiddenFilenameCharacters = '<>:"/\\|?*';
+    const safeName = title.split("").map(character => character.charCodeAt(0) < 32 || forbiddenFilenameCharacters.includes(character) ? "-" : character).join("").replace(/[. ]+$/g, "").slice(0, 80) || "Conversation";
+    const target = await dialog.showSaveDialog(mainWindow, {
+      title: `Export ${title}`,
+      defaultPath: `${safeName}.txt`,
+      filters: [{ name: "Text conversation", extensions: ["txt"] }],
+    });
+    if (target.canceled || !target.filePath) return { cancelled: true };
+    const body = ["SENTINEL CONVERSATION", title, `Created: ${String(value.created ?? "Unknown")}`, `Updated: ${String(value.updated ?? "Unknown")}`, "", content].join("\r\n");
+    writeFileSync(target.filePath, body, "utf8");
+    return { path: target.filePath };
+  });
+
   ipcMain.handle("sentinel:media-status", () => windowsAudioDevices());
   ipcMain.handle("sentinel:media-command", (_event, command: unknown) => {
     if (typeof command !== "string" || !(command in mediaVirtualKeys))
@@ -1300,6 +1411,30 @@ app.whenReady().then(async () => {
       throw new Error("Only web links can be opened.");
     await shell.openExternal(parsed.toString());
     return { opened: true };
+  });
+  let integrationCommandPending=false;
+  ipcMain.handle('sentinel:integration-command',async(event,input)=>{
+    if(!mainWindow||event.sender!==mainWindow.webContents||event.senderFrame!==mainWindow.webContents.mainFrame)throw new Error('Untrusted integration command source.');
+    if(integrationCommandPending)throw new Error('An integration command is already awaiting approval or completion.');
+    if(!input||['id','commandId','deviceId'].some(key=>typeof input[key]!=='string'||input[key].length>200)||typeof input.value!=='string'||input.value.length>4096)throw new Error('Invalid integration command.');
+    integrationCommandPending=true;
+    try{
+      const headers={'x-sentinel-local-token':backendApiToken,'Content-Type':'application/json'};
+      const get=async(route:string)=>{const res=await fetch(backendUrl()+route,{headers,signal:AbortSignal.timeout(15000)});if(!res.ok)throw new Error('Could not load integration details.');return res.json();};
+      const centre=await get('/setup/centre');
+      const module=centre.modules.find((m:any)=>m.id===input.id&&m.installed&&m.enabled&&!m.builtIn);
+      const command=module?.commands?.find((c:any)=>c.id===input.commandId);
+      if(!command||!module.revision)throw new Error('Enabled integration command not found.');
+      const devices=await get(`/setup/modules/${encodeURIComponent(input.id)}/devices`);
+      const device=devices.find((d:any)=>d.id===input.deviceId);if(!device)throw new Error('Device is no longer available.');
+      const decision=await dialog.showMessageBox(mainWindow,{type:'question',buttons:['Cancel','Send command'],defaultId:0,cancelId:0,title:'Approve integration command',message:`Send ${command.name} to ${device.name}?`,detail:`Service: ${module.name}\nAPI: ${module.baseUrl}\nDevice ID: ${input.deviceId}\nValue: ${input.value}\n\nProvider acceptance does not verify the physical result.`,noLink:true});
+      if(decision.response!==1)return {cancelled:true};
+      const request={id:input.id,commandId:input.commandId,deviceId:input.deviceId,value:input.value,revision:module.revision};
+      const nonce=randomUUID(),expires=Date.now()+60000;
+      const signature=createHmac('sha256',integrationApprovalSecret).update(JSON.stringify({request,nonce,expires})).digest('hex');
+      const res=await fetch(`${backendUrl()}/setup/modules/${encodeURIComponent(input.id)}/commands/${encodeURIComponent(input.commandId)}`,{method:'POST',headers,body:JSON.stringify({deviceId:input.deviceId,value:input.value,approval:{nonce,expires,signature}}),signal:AbortSignal.timeout(30000)});
+      const result=await res.json();if(!res.ok)throw new Error(result.error||'Provider command failed.');return result;
+    }finally{integrationCommandPending=false;}
   });
   ipcMain.handle("sentinel:virtualdj-status", () => virtualDJStatus());
   ipcMain.handle("sentinel:virtualdj-bridge-configure", async (_event, portInput: unknown, tokenInput: unknown) => {
@@ -1441,9 +1576,15 @@ app.whenReady().then(async () => {
       let output = "";
       child.stdout?.on("data", (chunk) => { output += String(chunk); });
       child.on("error", () => resolve({ available: false, authenticated: false, error: "Codex is not installed on this computer." }));
-      child.on("close", (code) => resolve(code === 0
-        ? { available: true, authenticated: true, version: output.trim() }
-        : { available: false, authenticated: false, error: "Open Codex and sign in before using Developer Chat." }));
+      const timer=setTimeout(()=>{child.kill();resolve({available:false,authenticated:false,error:'Codex status timed out.'});},10000);
+      child.on("close", (code) => {
+        clearTimeout(timer);
+        if(code!==0) return resolve({available:false,authenticated:false,error:'Codex could not start.'});
+        const login=spawn(codexExecutable(),['login','status'],{windowsHide:true,stdio:['ignore','ignore','ignore']});
+        const loginTimer=setTimeout(()=>{login.kill();resolve({available:true,authenticated:false,error:'Codex sign-in check timed out.'});},10000);
+        login.on('error',()=>{clearTimeout(loginTimer);resolve({available:true,authenticated:false,error:'Could not check Codex sign-in.'});});
+        login.on('close',status=>{clearTimeout(loginTimer);resolve({available:true,authenticated:status===0,version:output.trim(),...(status===0?{}:{error:'Open Codex and sign in before using Developer Chat.'})});});
+      });
     });
   });
 
@@ -1501,7 +1642,7 @@ app.whenReady().then(async () => {
       throw new Error("The release version is invalid.");
     bootstrapBaseUpdateAuthority();
     if (!existsSync(approvedPublicKey())) throw new Error("The Base update authority is missing.");
-    const response = await fetch(`${managedUpdateEndpoint()}/v1/releases/${encodeURIComponent(versionInput)}/package?platform=desktop&installationId=${encodeURIComponent(baseInstallationIdentity())}`, { headers: { "X-Sentinel-Registration": baseRegistrationSecret() } });
+    const response = await fetch(`${managedUpdateEndpoint()}/v1/releases/${encodeURIComponent(versionInput)}/package?platform=desktop&installationId=${encodeURIComponent(baseInstallationIdentity())}`, { headers: { "X-Sentinel-Registration": baseRegistrationSecret() }, signal: AbortSignal.timeout(120_000) });
     if (!response.ok) throw new Error(`The update download failed (${response.status}).`);
     const bytes = Buffer.from(await response.arrayBuffer());
     if (!bytes.length) throw new Error("The downloaded update was empty.");
@@ -1583,10 +1724,23 @@ app.whenReady().then(async () => {
     try {
       const [workflow, runs] = await Promise.all([
         appStoreConnectRequest(config, `/v1/ciWorkflows/${encodeURIComponent(config.workflowId)}`),
-        appStoreConnectRequest(config, `/v1/ciWorkflows/${encodeURIComponent(config.workflowId)}/buildRuns?limit=1&sort=-createdDate`),
+        appStoreConnectRequest(config, `/v1/ciWorkflows/${encodeURIComponent(config.workflowId)}/buildRuns?limit=200`),
       ]);
-      const run = runs?.data?.[0];
-      return { configured: true, connected: true, workflowId: config.workflowId, workflowName: workflow?.data?.attributes?.name || "Sentinel iOS", latestRun: run ? { id: run.id, ...run.attributes } : null };
+      // Apple's workflow build-runs endpoint does not expose a sort parameter.
+      // Sort locally so the status card cannot show an older run simply because
+      // App Store Connect changed the response order.
+      const run = Array.isArray(runs?.data)
+        ? [...runs.data].sort((left, right) => {
+            const leftDate = Date.parse(left?.attributes?.createdDate || "") || 0;
+            const rightDate = Date.parse(right?.attributes?.createdDate || "") || 0;
+            return rightDate - leftDate;
+          })[0]
+        : undefined;
+      let testFlight: TestFlightDistribution | undefined;
+      if (run?.attributes?.executionProgress === "COMPLETE" && run?.attributes?.completionStatus === "SUCCEEDED") {
+        testFlight = await ensureLatestSentinelTestFlightDistribution(config, run.attributes.startedDate || run.attributes.createdDate);
+      }
+      return { configured: true, connected: true, workflowId: config.workflowId, workflowName: workflow?.data?.attributes?.name || "Sentinel iOS", latestRun: run ? { id: run.id, ...run.attributes } : null, testFlight };
     } catch (error) {
       return { configured: true, connected: false, workflowId: config.workflowId, error: error instanceof Error ? error.message : "Unable to reach Xcode Cloud." };
     }
@@ -1605,6 +1759,13 @@ app.whenReady().then(async () => {
     return { started: true, runId: result?.data?.id, createdDate: result?.data?.attributes?.createdDate || new Date().toISOString() };
   });
 
+  ipcMain.handle("sentinel:xcode-cloud-disconnect", async (_event, developerToken: unknown) => {
+    if (!(await developerSessionIsActive(developerToken))) throw new Error("Developer Mode is locked.");
+    if (isBaseEdition()) throw new Error("Xcode Cloud control is available only in Sentinel Personal.");
+    if (existsSync(xcodeCloudConfigFile())) unlinkSync(xcodeCloudConfigFile());
+    return { disconnected: true };
+  });
+
   ipcMain.handle("sentinel:update-configure-publisher", async (_event, developerToken: unknown, endpointInput: unknown, tokenInput: unknown) => {
     if (!(await developerSessionIsActive(developerToken))) throw new Error("Developer Mode is locked.");
     if (isBaseEdition()) throw new Error("Release publishing is available only in Sentinel Personal.");
@@ -1614,6 +1775,7 @@ app.whenReady().then(async () => {
     if (!safeStorage.isEncryptionAvailable()) throw new Error("Windows credential encryption is unavailable.");
     const statusResponse = await fetch(`${endpoint}/v1/releases/publisher-status`, {
       headers: { Authorization: `Bearer ${tokenInput.trim()}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(15_000),
     });
     const statusBody = await statusResponse.text();
     if (!statusResponse.ok)
@@ -1637,13 +1799,15 @@ app.whenReady().then(async () => {
     if (!config) return { configured: false, connected: false };
     const response = await fetch(`${config.endpoint}/v1/releases/publisher-status`, {
       headers: { Authorization: `Bearer ${publisherToken(config)}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(15_000),
     });
     const service = await response.json().catch(() => ({})) as { authorised?: boolean; releaseBucketReady?: boolean; metadataStoreReady?: boolean };
     if (!response.ok) return { configured: true, connected: false, endpoint: config.endpoint, error: `Publisher returned ${response.status}.` };
-    const latestResponse = await fetch(`${config.endpoint}/v1/releases/latest?platform=desktop`, { headers: { Accept: "application/json" } });
+    const latestResponse = await fetch(`${config.endpoint}/v1/releases/latest?platform=desktop`, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(15_000) });
     const latest = latestResponse.ok ? await latestResponse.json() as { version?: string; publishedAt?: string } : null;
     const installationsResponse = await fetch(`${config.endpoint}/v1/installations`, {
       headers: { Authorization: `Bearer ${publisherToken(config)}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(15_000),
     });
     const installationsBody = installationsResponse.ok
       ? await installationsResponse.json() as { installations?: Array<{ installationId: string; platform: "windows" | "ios"; deviceName: string; appVersion: string; contentVersion: string; lastSeenAt: string }> }
@@ -1673,6 +1837,7 @@ app.whenReady().then(async () => {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ manifest, filename: path.basename(packagePathInput) }),
+        signal: AbortSignal.timeout(30_000),
       });
       const initBody = await initResponse.text();
       if (!initResponse.ok)
@@ -1684,7 +1849,7 @@ app.whenReady().then(async () => {
         const chunk = packageBuffer.subarray(offset, Math.min(offset + chunkSize, packageBuffer.length));
         const partResponse = await fetch(
           `${config.endpoint}/v1/releases/multipart/part?uploadId=${encodeURIComponent(init.uploadId)}&objectKey=${encodeURIComponent(init.objectKey)}&partNumber=${partNumber}`,
-          { method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" }, body: chunk },
+          { method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" }, body: chunk, signal: AbortSignal.timeout(120_000) },
         );
         const partBody = await partResponse.text();
         if (!partResponse.ok)
@@ -1695,6 +1860,7 @@ app.whenReady().then(async () => {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ uploadId: init.uploadId, objectKey: init.objectKey, manifest, parts }),
+        signal: AbortSignal.timeout(30_000),
       });
       const completeBody = await completeResponse.text();
       if (!completeResponse.ok)
@@ -1708,6 +1874,7 @@ app.whenReady().then(async () => {
       method: "POST",
       headers: { Authorization: `Bearer ${publisherToken(config)}` },
       body: form,
+      signal: AbortSignal.timeout(120_000),
     });
     const body = await response.text();
     if (!response.ok) throw new Error(`Publishing failed (${response.status}). ${body.slice(0, 300)}`);
