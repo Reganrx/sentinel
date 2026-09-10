@@ -16,6 +16,7 @@ struct RootView: View {
                 .toolbar { ToolbarItemGroup(placement: .topBarTrailing) { Button { live.open(conversationId: app.conversationID, enabledServices: app.enabledMobileServices.sorted()) } label: { Image(systemName: liveIcon).symbolEffect(.pulse, options: .repeating, isActive: live.state == .thinking || live.state == .speaking).foregroundStyle(Color(uiColor: app.accentColor)) }.accessibilityLabel(liveAccessibilityLabel); Button { browsePresented = true } label: { Label("Browse", systemImage: "square.grid.2x2") } } }
         }
         .tint(Color(uiColor: app.accentColor)).preferredColorScheme(.dark)
+        .safeAreaInset(edge: .bottom, spacing: 0) { SentinelBottomBar(browsePresented: $browsePresented) }
         .sheet(isPresented: $browsePresented) { SentinelBrowseView() }
         .onChange(of: app.selected) { _, page in
             let destination: [SentinelPage] = page == .home ? [] : [page]
@@ -32,6 +33,35 @@ struct RootView: View {
     }
     private var liveIcon: String { switch live.state { case .connecting, .thinking: "waveform.path.ecg"; case .speaking: "waveform.circle.fill"; case .listening, .muted: "waveform.badge.mic"; case .failed: "exclamationmark.triangle.fill"; default: "waveform.badge.mic" } }
     private var liveAccessibilityLabel: String { live.isActive ? "Open Talk with Sentinel, \(live.status)" : "Start Talk with Sentinel" }
+}
+
+private struct SentinelBottomBar: View {
+    @EnvironmentObject private var app: SentinelAppModel
+    @Binding var browsePresented: Bool
+    private let primary: [SentinelPage] = [.home, .chat, .weather, .navigation, .travel]
+    private var accent: Color { Color(uiColor: app.accentColor) }
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(primary) { page in
+                Button { app.selected = page } label: {
+                    VStack(spacing: 3) {
+                        Image(systemName: page.symbol).font(.system(size: 17, weight: app.selected == page ? .semibold : .regular))
+                        Text(page == .navigation ? "Navigate" : page.rawValue).font(.system(size: 9, weight: .medium)).lineLimit(1)
+                    }
+                    .foregroundStyle(app.selected == page ? accent : .secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(app.selected == page ? accent.opacity(0.13) : .clear, in: RoundedRectangle(cornerRadius: 12))
+                }.buttonStyle(.plain).accessibilityLabel("Open \(page.rawValue)")
+            }
+            Button { browsePresented = true } label: {
+                VStack(spacing: 3) { Image(systemName: "ellipsis.circle").font(.system(size: 17)); Text("More").font(.system(size: 9, weight: .medium)) }
+                    .foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.vertical, 8)
+            }.buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8).padding(.vertical, 5)
+        .background(.ultraThinMaterial).overlay(alignment: .top) { Divider().opacity(0.35) }
+    }
 }
 
 private struct SentinelBrowseView: View {
@@ -94,7 +124,7 @@ private struct SentinelPageView: View {
         Card(title: "EXPERIENCE", symbol: "paintpalette.fill") { Picker("Accent colour", selection: Binding(get: { app.accentTheme }, set: { app.setAccentTheme($0) })) { ForEach(SentinelAccentTheme.allCases) { Text($0.rawValue).tag($0) } }.pickerStyle(.menu); Picker("Reactor animation", selection: Binding(get: { app.reactorAnimation }, set: { app.setReactorAnimation($0) })) { ForEach(SentinelReactorAnimation.allCases) { Text($0.rawValue).tag($0) } }.pickerStyle(.segmented); Text("Visible pages").font(.caption.bold()).foregroundStyle(.secondary); ForEach(SentinelPage.corePages.filter { $0 != .home && $0 != .settings }) { page in Toggle(page.rawValue, isOn: Binding(get: { app.visiblePageNames.contains(page.rawValue) }, set: { app.setPageVisible(page, visible: $0) })) } }
         Card(title: "VOICE & AUDIO", symbol: "waveform") { StatusRow("Talk with Sentinel", "cedar", good: true); Toggle("Spoken replies", isOn: $app.spokenResponses).onChange(of: app.spokenResponses) { _, enabled in app.setSpokenResponses(enabled) }; Text("Live conversations default to the iPhone speaker. Microphone and speech permissions remain under iOS control.").font(.caption).foregroundStyle(.secondary) }
         MobileServicesDiagnosticsPanel()
-        Card(title: "DESKTOP SYNC", symbol: "link") { TextField("Six-digit pairing code", text: $app.pairingCode).keyboardType(.numberPad).textFieldStyle(.roundedBorder); StatusRow("Connection", app.pairingStatus, good: app.companionPaired); if let date = app.companionLastSyncedAt { Text("Last connected \(date, style: .relative)").font(.caption).foregroundStyle(.secondary) }; HStack { Button(app.companionPaired ? "Desktop paired" : "Pair securely") { Task { await app.pairCompanion() } }.disabled(app.pairingCode.count != 6 && !app.companionPaired).buttonStyle(.borderedProminent); Button("Reconnect") { Task { await app.refreshCompanionConnection() } }.buttonStyle(.bordered) }; if app.companionPaired { Button("Use a new pairing code", role: .destructive) { app.prepareForNewPairingCode() } } }
+        Card(title: "DESKTOP SYNC", symbol: "link") { TextField("Six-digit pairing code", text: $app.pairingCode).keyboardType(.numberPad).textFieldStyle(.roundedBorder); StatusRow("Connection", app.pairingStatus, good: app.companionPaired); if let date = app.companionLastSyncedAt { Text("Last connected \(date, style: .relative)").font(.caption).foregroundStyle(.secondary) }; HStack { Button(app.companionPaired ? "Desktop paired" : "Pair securely") { Task { await app.pairCompanion() } }.disabled(app.pairingCode.count != 6 && !app.companionPaired).buttonStyle(.borderedProminent); Button("Reconnect") { Task { await app.refreshCompanionConnection() } }.buttonStyle(.bordered) }; Button("Test Personal + iPhone") { Task { await app.testPersonalAndMobile() } }.buttonStyle(.bordered); Text(app.crossDeviceTestStatus).font(.caption2).foregroundStyle(.secondary); if app.companionPaired { Button("Unpair this iPhone", role: .destructive) { Task { await app.unpairCompanion() } } } }
         Card(title: "PRIVACY & UPDATES", symbol: "lock.shield.fill") { Toggle("Face ID lock", isOn: Binding(get: { app.appLockEnabled }, set: { enabled in Task { if enabled { await app.enableAppLock() } else { await app.disableAppLock() } } })); Text("App binaries update through Xcode, TestFlight or the App Store. Sentinel content and configuration updates remain separate.").font(.caption).foregroundStyle(.secondary); Button("Check Sentinel content") { Task { await app.checkForUpdates() } }.buttonStyle(.bordered) }
     } }
     private var system: some View { Group { Card(title: "THIS IPHONE", symbol: "iphone") { HStack(spacing: 16) { ZStack { Circle().fill(Color.cyan.opacity(0.14)).frame(width: 72, height: 72); Image(systemName: "iphone").font(.system(size: 34, weight: .medium)).foregroundStyle(.cyan) }; VStack(alignment: .leading, spacing: 5) { Text(app.localSystem.deviceName).font(.title3.bold()).lineLimit(1); Text(app.localSystem.systemVersion).font(.subheadline).foregroundStyle(.secondary); Label("Private local device status", systemImage: "lock.fill").font(.caption).foregroundStyle(.cyan) }; Spacer() } }; Card(title: "POWER", symbol: "battery.100percent") { HStack(alignment: .center, spacing: 14) { Image(systemName: batterySymbol).font(.system(size: 36)).foregroundStyle(batteryColor); VStack(alignment: .leading, spacing: 3) { Text(app.localSystem.batteryLevel.map { "\($0)%" } ?? "Unavailable").font(.system(size: 30, weight: .bold)); Text(app.localSystem.batteryState).font(.caption).foregroundStyle(.secondary) }; Spacer(); Text("iPhone battery information is supplied by iOS.").font(.caption2).foregroundStyle(.secondary).frame(maxWidth: 120, alignment: .trailing) } }; Card(title: "SENTINEL", symbol: "app.badge") { StatusRow("Native app", app.nativeVersion, good: true); StatusRow("Content", "v\(app.contentVersion)", good: true); StatusRow("Uptime", formattedUptime(app.localSystem.uptime), good: true); Button { app.refreshLocalSystem() } label: { Label("Refresh local status", systemImage: "arrow.clockwise") }.buttonStyle(.bordered).tint(.cyan) }; Card(title: "DEVICE PRIVACY", symbol: "hand.raised.fill") { Text("Sentinel reads only the device details iOS makes available. It cannot change iPhone system settings or access hardware diagnostics that iOS restricts.").font(.caption).foregroundStyle(.secondary) } } }
@@ -129,6 +159,12 @@ private struct MobileServicesDiagnosticsPanel: View {
             HStack {
                 Button(app.isCheckingMobileServices ? "Checking…" : "Test mobile services") { Task { await app.refreshMobileServiceStatus() } }.buttonStyle(.borderedProminent).disabled(app.isCheckingMobileServices)
                 Button("Reconnect") { Task { await app.refreshCompanionConnection(); await app.refreshMobileServiceStatus() } }.buttonStyle(.bordered)
+            }
+            if app.hasMobileServiceAccess {
+                Button("Disable Mobile Services", role: .destructive) { Task { await app.disableMobileAccess() } }.buttonStyle(.bordered)
+            } else {
+                Button { Task { await app.requestMobileAccess() } } label: { Label("Enable Mobile Services", systemImage: "bolt.shield.fill") }.buttonStyle(.borderedProminent).disabled(!app.companionPaired)
+                Text(app.companionPaired ? "Uses the services approved in Sentinel Personal without copying API keys to this iPhone." : "Pair this iPhone with Sentinel Personal first.").font(.caption2).foregroundStyle(.secondary)
             }
             Text(app.mobileServicesCheckedAt.map { "Last checked \($0.formatted(date: .omitted, time: .shortened))" } ?? app.mobileServiceDiagnostics).font(.caption2).foregroundStyle(.secondary)
 

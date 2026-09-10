@@ -110,6 +110,7 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     @Published private(set) var mobileServiceDiagnostics = "Not checked yet"
     @Published private(set) var mobileServicesCheckedAt: Date?
     @Published private(set) var isCheckingMobileServices = false
+    @Published private(set) var crossDeviceTestStatus = "Not tested yet"
     @Published private(set) var desktopActionStatus = "No desktop request sent."
     @Published private(set) var desktopActionCommandID: String?
 
@@ -446,6 +447,54 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
         mobileServiceDiagnostics = lastError?.localizedDescription ?? "Mobile service status could not be checked."
     }
 
+    var hasMobileServiceAccess: Bool {
+        KeychainStore.string(for: "mobileServiceAccessToken") != nil
+    }
+
+    func requestMobileAccess() async {
+        guard companionPaired, KeychainStore.string(for: "cloudToken") != nil else {
+            mobileAccessStatus = "Pair this iPhone with Sentinel Personal first"
+            return
+        }
+        if let refreshed = try? await cloud.availableMobileServices() {
+            availableMobileServices = Set(refreshed)
+            UserDefaults.standard.set(refreshed, forKey: "sentinelAvailableMobileServices")
+        } else {
+            availableMobileServices = Set(UserDefaults.standard.stringArray(forKey: "sentinelAvailableMobileServices") ?? [])
+        }
+        guard !availableMobileServices.isEmpty else {
+            mobileAccessStatus = "Enable Mobile Service Access in Sentinel Personal, then reconnect"
+            return
+        }
+        showMobileAccessConsent = true
+    }
+
+    func disableMobileAccess() async {
+        mobileAccessStatus = "Disabling independent access…"
+        try? await cloud.revokeMobileAccess()
+        KeychainStore.remove("mobileServiceAccessToken")
+        enabledMobileServices = []
+        mobileServiceStatus = nil
+        UserDefaults.standard.removeObject(forKey: "sentinelEnabledMobileServices")
+        mobileServiceDiagnostics = "Mobile Service Access is disabled. Companion Sync remains paired."
+        mobileAccessStatus = "Permission disabled"
+    }
+
+    func testPersonalAndMobile() async {
+        crossDeviceTestStatus = "Testing Sentinel Personal and iPhone services…"
+        await refreshCompanionConnection()
+        let personalOK = companionPaired && lastCompanionConnection != nil
+        await refreshMobileServiceStatus()
+        let mobileOK = mobileServiceStatus?.online != false && mobileServiceStatus != nil
+        if personalOK && mobileOK {
+            crossDeviceTestStatus = "Personal and iPhone services are connected"
+        } else if personalOK {
+            crossDeviceTestStatus = hasMobileServiceAccess ? "Personal connected; mobile services need attention" : "Personal connected; enable mobile services below"
+        } else {
+            crossDeviceTestStatus = "Sentinel Personal is unavailable; check that it is running"
+        }
+    }
+
     func queueDesktopAction(
         _ action: SentinelDesktopAction,
         target: String = "",
@@ -660,14 +709,19 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
         }
     }
 
-    func prepareForNewPairingCode() {
+    func unpairCompanion() async {
         reconnectTask?.cancel()
         reconnectTask = nil
+
+        try? await cloud.unpairCompanion()
 
         pairingCode = ""
         companionPaired = false
         pairingStatus = "Enter the new code from Sentinel Desktop"
 
+        KeychainStore.remove("cloudToken")
+        KeychainStore.remove("localEndpoint")
+        KeychainStore.remove("localToken")
         KeychainStore.remove("mobileServiceAccessToken")
 
         enabledMobileServices = []
@@ -679,6 +733,8 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
         )
 
         mobileAccessStatus = "Permission disabled"
+        lastCompanionConnection = nil
+        companionLastSyncedAt = nil
     }
 
     func enrolMobileAccess() async {

@@ -23,7 +23,7 @@ if ($project -notmatch 'MARKETING_VERSION = 1\.2\.1;' -or
     throw 'The Xcode project identity does not match SentinelBase 1.2.1.'
 }
 $sourceBuild = [int]([regex]::Match($project, 'CURRENT_PROJECT_VERSION = ([0-9]+);').Groups[1].Value)
-if ($sourceBuild -lt 11) { throw "The source build number $sourceBuild must be 11 or higher for the next TestFlight upload." }
+if ($sourceBuild -lt 12) { throw "The source build number $sourceBuild must be 12 or higher for the next TestFlight upload." }
 
 $packageLock = Get-Content -Raw -LiteralPath $packageLockPath
 if ($packageLock -notmatch 'stasel/WebRTC\.git' -or $packageLock -notmatch '152\.0\.0') {
@@ -45,7 +45,7 @@ foreach ($file in $swiftFiles) {
 }
 
 Write-Host 'Sentinel iOS source is ready for Xcode Cloud.'
-Write-Host "Source version: 1.2.1 ($sourceBuild); latest uploaded TestFlight build: 10"
-Write-Host 'Next TestFlight upload must use build 11 or higher.'
+Write-Host "Source version: 1.2.1 ($sourceBuild); latest uploaded TestFlight build: 11"
+Write-Host 'Next TestFlight upload must use build 12 or higher.'
 Write-Host 'Scheme:  SentinelBase'
 Write-Host "Swift:   $($swiftFiles.Count) source files"

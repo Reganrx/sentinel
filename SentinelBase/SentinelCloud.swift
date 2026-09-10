@@ -102,6 +102,35 @@ struct SentinelCloud {
         return enrollment
     }
 
+    func revokeMobileAccess() async throws {
+        guard let token = KeychainStore.string(for: "cloudToken") else { return }
+        var request = URLRequest(url: endpoint.appending(path: "companion/mobile-access/revoke"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard isSuccess(response) else { throw URLError(.badServerResponse) }
+    }
+
+    func availableMobileServices() async throws -> [String] {
+        guard let token = KeychainStore.string(for: "cloudToken") else { throw URLError(.userAuthenticationRequired) }
+        var request = URLRequest(url: endpoint.appending(path: "companion/mobile-access/status"))
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard isSuccess(response),
+              let value = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { throw URLError(.badServerResponse) }
+        return value["availableServices"] as? [String] ?? []
+    }
+
+    func unpairCompanion() async throws {
+        guard let token = KeychainStore.string(for: "cloudToken") else { return }
+        var request = URLRequest(url: endpoint.appending(path: "companion/unpair"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard isSuccess(response) else { throw URLError(.badServerResponse) }
+    }
+
     func companionRequest(path: String, method: String = "GET", body: Data? = nil) async throws -> Data {
         if let data = try? await localCompanionRequest(path: path, method: method, body: body) { return data }
         return try await cloudCompanionRequest(path: path, method: method, body: body)
