@@ -16,7 +16,9 @@ struct RootView: View {
                 .toolbar { ToolbarItemGroup(placement: .topBarTrailing) { Button { live.open(conversationId: app.conversationID, enabledServices: app.enabledMobileServices.sorted()) } label: { Image(systemName: liveIcon).symbolEffect(.pulse, options: .repeating, isActive: live.state == .thinking || live.state == .speaking).foregroundStyle(Color(uiColor: app.accentColor)) }.accessibilityLabel(liveAccessibilityLabel); Button { browsePresented = true } label: { Label("Browse", systemImage: "square.grid.2x2") } } }
         }
         .tint(Color(uiColor: app.accentColor)).preferredColorScheme(.dark)
-        .safeAreaInset(edge: .bottom, spacing: 0) { SentinelBottomBar(browsePresented: $browsePresented) }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if app.selected != .chat { SentinelBottomBar(browsePresented: $browsePresented) }
+        }
         .sheet(isPresented: $browsePresented) { SentinelBrowseView() }
         .onChange(of: app.selected) { _, page in
             let destination: [SentinelPage] = page == .home ? [] : [page]
@@ -309,6 +311,7 @@ private struct SentinelWeatherDashboard: View {
     @State private var radarRecenterNonce = 0
     @State private var radarWideView = false
     @State private var radarPlaybackTask: Task<Void, Never>?
+    private var accent: Color { Color(uiColor: app.accentColor) }
     var body: some View {
         ZStack {
             VStack(alignment: .leading, spacing: 16) {
@@ -324,15 +327,72 @@ private struct SentinelWeatherDashboard: View {
         .onChange(of: app.radarMetadata?.frames.count) { _, _ in radarFrameIndex = app.radarCurrentFrameIndex }
         .onDisappear { stopRadarPlayback() }
     }
-    private var currentHourly: some View { Group { Card(title: "CURRENT CONDITIONS", symbol: "cloud.sun.fill") { if let weather = app.weather { HStack { Image(systemName: weather.symbol).font(.system(size: 52)).foregroundStyle(Color(uiColor: app.accentColor)); VStack(alignment: .leading) { Text("\(Int(weather.current.temperature2m))°").font(.system(size: 48, weight: .bold)); Text(weather.conditionName).font(.headline) }; Spacer() }; HStack { StatusRow("Feels like", "\(Int(weather.current.apparentTemperature))°", good: true); StatusRow("Wind", "\(Int(weather.current.windSpeed10m)) km/h", good: true) }; if let details = app.weatherDetails { StatusRow("Humidity", "\(details.current.humidity)%", good: true); StatusRow("Visibility", "\(Int(details.current.visKm)) km", good: true); StatusRow("UV", "\(Int(details.current.uv))", good: true); StatusRow("Precipitation", "\(Int(details.current.precipMm)) mm", good: true) } } else { Text(app.weatherStatus).foregroundStyle(.secondary) }; Button("Refresh weather") { app.refreshWeather() }.buttonStyle(.borderedProminent).tint(Color(uiColor: app.accentColor)); Text(app.weatherUpdatedAt.map { "Updated \($0.formatted(date: .omitted, time: .shortened))" } ?? "No saved forecast yet.").font(.caption).foregroundStyle(.secondary) }; if let weather = app.weather { Card(title: "NEXT 24 HOURS", symbol: "clock.fill") { ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 10) { ForEach(futureHours(weather, limit: 24), id: \.offset) { index, time in VStack(spacing: 7) { Text(String(time.suffix(5))).font(.caption); Image(systemName: SentinelWeather.symbol(for: weather.current.weatherCode)).foregroundStyle(Color(uiColor: app.accentColor)); Text("\(Int(weather.hourly.temperature2m[index]))°").bold(); Label("\(weather.hourly.precipitationProbability[index])%", systemImage: "drop.fill").font(.caption2).foregroundStyle(Color(uiColor: app.accentColor)) }.frame(width: 76).padding(.vertical, 10).background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14)) } } } } } }
+    private var currentHourly: some View {
+        Group {
+            if let weather = app.weather {
+                VStack(alignment: .leading, spacing: 14) {
+                    ZStack(alignment: .bottomLeading) {
+                        LinearGradient(colors: weatherHeroColours(weather.current.weatherCode), startPoint: .topLeading, endPoint: .bottomTrailing)
+                        Image(systemName: weather.symbol).font(.system(size: 132, weight: .thin)).foregroundStyle(.white.opacity(0.11)).offset(x: 215, y: -34)
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack { Label(app.weatherDetails?.location.name ?? "Local weather", systemImage: "location.fill").font(.caption.weight(.semibold)); Spacer(); Button { app.refreshWeather() } label: { Image(systemName: "arrow.clockwise").padding(10).background(.white.opacity(0.13), in: Circle()) }.accessibilityLabel("Refresh weather") }
+                            Spacer(minLength: 18)
+                            Text("\(Int(weather.current.temperature2m))°").font(.system(size: 72, weight: .thin, design: .rounded)).contentTransition(.numericText())
+                            Text(weather.conditionName).font(.title2.bold())
+                            Text(rainSummary(weather)).font(.subheadline.weight(.medium)).foregroundStyle(.white.opacity(0.82))
+                        }.padding(20)
+                    }
+                    .frame(height: 270).clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 28).stroke(.white.opacity(0.14)))
+
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                        weatherMetric("Feels like", "\(Int(weather.current.apparentTemperature))°", "thermometer.medium")
+                        weatherMetric("Wind", "\(Int(weather.current.windSpeed10m)) km/h", "wind")
+                        if let details = app.weatherDetails {
+                            weatherMetric("Humidity", "\(details.current.humidity)%", "humidity.fill")
+                            weatherMetric("Visibility", "\(Int(details.current.visKm)) km", "eye.fill")
+                            weatherMetric("UV index", "\(Int(details.current.uv))", "sun.max.fill")
+                            weatherMetric("Rain now", String(format: "%.1f mm", details.current.precipMm), "drop.fill")
+                        }
+                    }
+                    Text(app.weatherUpdatedAt.map { "Updated \($0.formatted(date: .omitted, time: .shortened))" } ?? app.weatherStatus).font(.caption).foregroundStyle(.secondary)
+                }
+
+                Card(title: "HOURLY FORECAST", symbol: "clock.fill") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(futureHours(weather, limit: 24), id: \.offset) { index, time in
+                                VStack(spacing: 8) {
+                                    Text(String(time.suffix(5))).font(.caption.weight(.semibold))
+                                    Image(systemName: hourlySymbol(index, fallback: weather.current.weatherCode)).font(.title3).foregroundStyle(accent)
+                                    Text("\(Int(weather.hourly.temperature2m[index]))°").font(.title3.bold())
+                                    Label("\(weather.hourly.precipitationProbability[index])%", systemImage: "drop.fill").font(.caption2.weight(.medium)).foregroundStyle(weather.hourly.precipitationProbability[index] >= 60 ? .blue : .secondary)
+                                }
+                                .frame(width: 78).padding(.vertical, 12)
+                                .background(index == futureHours(weather, limit: 24).first?.offset ? accent.opacity(0.16) : Color.white.opacity(0.065), in: RoundedRectangle(cornerRadius: 17))
+                                .overlay(RoundedRectangle(cornerRadius: 17).stroke(index == futureHours(weather, limit: 24).first?.offset ? accent.opacity(0.32) : .clear))
+                            }
+                        }
+                    }
+                }
+            } else {
+                ContentUnavailableView("Weather unavailable", systemImage: "cloud.slash", description: Text(app.weatherStatus))
+                Button("Load local weather") { app.refreshWeather() }.buttonStyle(.borderedProminent).tint(accent)
+            }
+        }
     }
     private var weekly: some View { Group { if let weather = app.weather { Card(title: weather.daily.time.count >= 7 ? "SEVEN-DAY OUTLOOK" : "FORECAST — \(weather.daily.time.count) DAYS AVAILABLE", symbol: "calendar") { ForEach(Array(weather.daily.time.prefix(7).enumerated()), id: \.offset) { index, day in Button { selectedDay = index } label: { HStack { Image(systemName: SentinelWeather.symbol(for: weather.daily.weatherCode[index])).foregroundStyle(.cyan).frame(width: 28); VStack(alignment: .leading) { Text(day).font(.headline); Text("Tap for forecast details").font(.caption).foregroundStyle(.secondary) }; Spacer(); Text("\(Int(weather.daily.temperature2mMin[index]))°").foregroundStyle(.secondary); Text("\(Int(weather.daily.temperature2mMax[index]))°").bold().foregroundStyle(.cyan); Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary) }.contentShape(Rectangle()) }.buttonStyle(.plain); if index < min(weather.daily.time.count, 7) - 1 { Divider().overlay(Color.cyan.opacity(0.18)) } } } } else { Card(title: "WEEKLY FORECAST", symbol: "calendar") { Text(app.weatherStatus); Button("Refresh weather") { app.refreshWeather() }.buttonStyle(.borderedProminent) } } } }
     private var radar: some View { Card(title: "WEATHER RADAR", symbol: "map.fill") {
         let frames = app.radarMetadata?.frames ?? []
         let frame = frames.indices.contains(radarFrameIndex) ? frames[radarFrameIndex] : nil
         RadarTileMap(tileTemplate: frame?.tileTemplate, centre: app.lastKnownLocation, recenterNonce: radarRecenterNonce, opacity: radarOpacity, wideView: radarWideView)
-            .frame(height: 410).clipShape(RoundedRectangle(cornerRadius: 18))
+            .frame(height: 470).clipShape(RoundedRectangle(cornerRadius: 22))
+            .overlay(RoundedRectangle(cornerRadius: 22).stroke(accent.opacity(0.25)))
+            .overlay(alignment: .topLeading) { if let frame { VStack(alignment: .leading, spacing: 2) { Text(radarFrameLabel(frame.date).uppercased()).font(.caption2.bold()).tracking(1); Text(frame.date.formatted(date: .omitted, time: .shortened)).font(.headline) }.padding(.horizontal, 12).padding(.vertical, 9).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 13)).padding(12) } }
             .overlay(alignment: .bottomTrailing) { Button { radarWideView = false; radarRecenterNonce += 1 } label: { Image(systemName: "location.fill").font(.headline).padding(12).background(.ultraThinMaterial, in: Circle()) }.padding(12).disabled(app.lastKnownLocation == nil).accessibilityLabel("Return to current location") }
+        HStack(spacing: 0) {
+            radarLegend("None", .clear); radarLegend("Light", .blue); radarLegend("Moderate", .green); radarLegend("Heavy", .yellow); radarLegend("Severe", .red)
+        }.padding(8).background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 13))
         HStack { Label(app.radarMetadata == nil ? "Radar unavailable" : "\(app.radarMetadata?.provider ?? "Radar")", systemImage: "cloud.rain.fill"); Spacer(); Button { radarWideView.toggle(); radarRecenterNonce += 1 } label: { Label(radarWideView ? "Local view" : "Wider UK view", systemImage: radarWideView ? "location.fill" : "globe.europe.africa.fill") }.buttonStyle(.bordered).tint(.cyan); Button { Task { await app.refreshRadar() } } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(.bordered).tint(.cyan) }.font(.caption).foregroundStyle(.secondary)
         Text(app.radarStatus).font(.caption).foregroundStyle(app.radarMetadata == nil ? .orange : .secondary)
         if let frame {
@@ -343,10 +403,14 @@ private struct SentinelWeatherDashboard: View {
             Text(app.radarMetadata?.attribution ?? "").font(.caption2).foregroundStyle(.secondary)
         }
         DisclosureGroup("Radar diagnostics") { VStack(alignment: .leading, spacing: 3) { Text("Request: \(SentinelCloud.relayBaseURL)/mobile/services/weather/radar"); Text("Status: \(app.radarHTTPStatus) · Mobile token found: \(KeychainStore.string(for: "mobileServiceAccessToken") == nil ? "No" : "Yes")"); Text("Frames: \(app.radarFrameCount) · Latest: \(app.radarLatestFrame)") }.font(.caption2).foregroundStyle(.secondary).textSelection(.enabled) }.font(.caption2).foregroundStyle(.secondary)
-        Text("Approximate radar intensity: transparent no precipitation · blue light · green moderate · yellow heavy · orange/red very heavy · purple extreme.").font(.caption2).foregroundStyle(.secondary)
-        Text("If no coloured radar cells are visible, the selected live frame may show no precipitation over this area. Use Wider UK view to check approaching systems.").font(.caption2).foregroundStyle(.secondary)
+        Text("No colour means no precipitation in the selected frame. Use Wider UK view to see systems approaching your area.").font(.caption2).foregroundStyle(.secondary)
         if let weather = app.weather { VStack(alignment: .leading, spacing: 7) { Text("NEXT 6 HOURS").font(.caption.bold()).foregroundStyle(.cyan); ScrollView(.horizontal, showsIndicators: false) { HStack { ForEach(Array(weather.hourly.time.prefix(6).enumerated()), id: \.offset) { index, time in VStack(spacing: 3) { Text(String(time.suffix(5))).font(.caption2); Image(systemName: weather.symbol).foregroundStyle(.cyan); Text("\(Int(weather.hourly.temperature2m[index]))°").font(.caption.bold()); Text("\(weather.hourly.precipitationProbability[index])%").font(.caption2).foregroundStyle(.secondary) }.frame(width: 58).padding(6).background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10)) } } } } }
     } }
+    private func weatherMetric(_ title: String, _ value: String, _ symbol: String) -> some View { HStack(spacing: 11) { Image(systemName: symbol).font(.title3).foregroundStyle(accent).frame(width: 27); VStack(alignment: .leading, spacing: 2) { Text(title).font(.caption).foregroundStyle(.secondary); Text(value).font(.headline) }; Spacer() }.padding(13).background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16)) }
+    private func weatherHeroColours(_ code: Int) -> [Color] { switch code { case 0: [Color(red: 0.05, green: 0.38, blue: 0.72), Color(red: 0.08, green: 0.69, blue: 0.88)]; case 45, 48: [Color(red: 0.18, green: 0.25, blue: 0.31), Color(red: 0.35, green: 0.43, blue: 0.48)]; case 51...67, 80...82: [Color(red: 0.04, green: 0.12, blue: 0.24), Color(red: 0.08, green: 0.31, blue: 0.47)]; case 95...99: [Color(red: 0.08, green: 0.05, blue: 0.19), Color(red: 0.28, green: 0.13, blue: 0.40)]; default: [Color(red: 0.08, green: 0.22, blue: 0.38), Color(red: 0.18, green: 0.43, blue: 0.59)] } }
+    private func rainSummary(_ weather: SentinelWeather) -> String { let hours = futureHours(weather, limit: 6); guard let wet = hours.first(where: { weather.hourly.precipitationProbability[$0.offset] >= 50 }) else { return "Low chance of rain for the next six hours" }; return "Rain chance reaches \(weather.hourly.precipitationProbability[wet.offset])% around \(String(wet.element.suffix(5)))" }
+    private func hourlySymbol(_ index: Int, fallback: Int) -> String { let hours = app.weatherDetails?.forecast.forecastday.flatMap(\.hour) ?? []; guard hours.indices.contains(index) else { return SentinelWeather.symbol(for: fallback) }; return SentinelWeather.symbol(for: SentinelWeather.conditionCode(for: hours[index].condition.text)) }
+    private func radarLegend(_ title: String, _ colour: Color) -> some View { VStack(spacing: 4) { RoundedRectangle(cornerRadius: 3).fill(title == "None" ? Color.white.opacity(0.14) : colour).frame(height: 5); Text(title).font(.system(size: 8, weight: .semibold)).foregroundStyle(.secondary) }.frame(maxWidth: .infinity) }
     private func previousRadarFrame() { guard let count = app.radarMetadata?.frames.count, count > 0 else { return }; radarFrameIndex = (radarFrameIndex - 1 + count) % count; stopRadarPlayback() }
     private func radarFrameLabel(_ date: Date) -> String { guard date <= .now else { return "Forecast" }; let minutes = Int(Date().timeIntervalSince(date) / 60); return minutes > 15 ? "Observed · \(minutes)m ago" : "Observed · current" }
     private func nextRadarFrame() { guard let count = app.radarMetadata?.frames.count, count > 0 else { return }; radarFrameIndex = min(radarFrameIndex + 1, count - 1); stopRadarPlayback() }
