@@ -10,7 +10,7 @@ test -f "$PROJECT"
 test -f "$SCHEME"
 test -f "$PACKAGE_LOCK"
 grep -q 'PRODUCT_BUNDLE_IDENTIFIER = uk.co.sentinel.base;' "$PROJECT"
-grep -Eq 'CURRENT_PROJECT_VERSION = (1[4-9]|[2-9][0-9]+);' "$PROJECT"
+grep -Eq 'CURRENT_PROJECT_VERSION = (1[5-9]|[2-9][0-9]+);' "$PROJECT"
 grep -q 'repositoryURL = "https://github.com/stasel/WebRTC.git";' "$PROJECT"
 grep -q 'version = 152.0.0;' "$PROJECT"
 

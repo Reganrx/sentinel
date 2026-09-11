@@ -175,6 +175,11 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
                 forKey: "sentinelSystemPageMigration1"
             )
         }
+        if !UserDefaults.standard.bool(forKey: "sentinelMissionControlMigration1") {
+            initialVisiblePageNames.insert(SentinelPage.missionControl.rawValue)
+            UserDefaults.standard.set(Array(initialVisiblePageNames), forKey: "sentinelVisiblePages")
+            UserDefaults.standard.set(true, forKey: "sentinelMissionControlMigration1")
+        }
 
         visiblePageNames = initialVisiblePageNames
 
@@ -2298,6 +2303,7 @@ enum SentinelPage: String, CaseIterable, Identifiable {
     case navigation = "Navigation"
     case travel = "Travel"
     case weather = "Weather"
+    case missionControl = "Mission Control"
     case notifications = "Notifications"
     case settings = "Settings"
     case system = "System"
@@ -2308,6 +2314,7 @@ enum SentinelPage: String, CaseIterable, Identifiable {
         .navigation,
         .travel,
         .weather,
+        .missionControl,
         .notifications,
         .settings,
         .system
@@ -2329,6 +2336,8 @@ enum SentinelPage: String, CaseIterable, Identifiable {
             "airplane"
         case .weather:
             "cloud.sun.fill"
+        case .missionControl:
+            "shield.lefthalf.filled"
         case .notifications:
             "bell.fill"
         case .settings:
