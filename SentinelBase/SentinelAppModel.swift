@@ -1371,7 +1371,13 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
                 if let status = serviceError.httpStatus { radarHTTPStatus = "HTTP \(status)" } else { radarHTTPStatus = "No HTTP response" }
                 if case .notPermitted = serviceError { radarStatus = "Weather access is not enabled for this iPhone." }
                 else { radarStatus = radarMetadata == nil ? serviceError.localizedDescription : "Showing cached radar imagery. Live refresh will retry." }
-            } else { radarHTTPStatus = "No HTTP response"; radarStatus = radarMetadata == nil ? "Live radar could not be refreshed." : "Showing cached radar imagery. Live refresh will retry." }
+            } else {
+                if radarHTTPStatus == "Requesting…" { radarHTTPStatus = "No HTTP response" }
+                let detail = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+                radarStatus = radarMetadata == nil
+                    ? (detail.isEmpty ? "Live radar could not be refreshed." : "Radar response error: \(detail)")
+                    : "Showing cached radar imagery. Live refresh will retry."
+            }
         }
     }
 

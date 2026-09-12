@@ -45,7 +45,7 @@ foreach ($file in $swiftFiles) {
 }
 
 Write-Host 'Sentinel iOS source is ready for Xcode Cloud.'
-Write-Host "Source version: 1.2.1 ($sourceBuild); latest uploaded TestFlight build: 15"
-Write-Host 'Next TestFlight upload must use build 16 or higher.'
+Write-Host "Source version: 1.2.1 ($sourceBuild); latest uploaded TestFlight build: 16"
+Write-Host 'Next TestFlight upload must use build 17 or higher.'
 Write-Host 'Scheme:  SentinelBase'
 Write-Host "Swift:   $($swiftFiles.Count) source files"

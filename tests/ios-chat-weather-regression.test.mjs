@@ -27,6 +27,12 @@ test("legacy RainViewer cache cannot reappear", () => {
   assert.match(model, /removeObject\(forKey: "sentinelRadarMetadata"\)/);
 });
 
+test("WeatherAPI radar metadata decodes without legacy colour-scheme data", () => {
+  assert.match(weather, /let colorScheme: Int\?/);
+  assert.match(model, /if radarHTTPStatus == "Requesting…"/);
+  assert.match(model, /Radar response error:/);
+});
+
 test("chat capability questions do not consume provider quota", () => {
   assert.match(model, /localChatCapabilityReply/);
   assert.match(model, /generate images/);

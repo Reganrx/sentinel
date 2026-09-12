@@ -98,7 +98,7 @@ struct SentinelRadarMetadata: Codable {
     let attribution: String
     let generatedAt: String
     let tileSize: Int
-    let colorScheme: Int
+    let colorScheme: Int?
     let smooth: Bool
     let snow: Bool
     let frames: [Frame]
