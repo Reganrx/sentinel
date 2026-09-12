@@ -113,3 +113,12 @@ test("mobile home and notifications provide direct operational navigation", () =
   assert.match(root, /notificationDestination/);
   assert.match(root, /app\.markActivityRead\(item\.id\); app\.selected/);
 });
+
+test("new mobile page migrations run during model initialization", () => {
+  const initialization = model.slice(model.indexOf("var initialVisiblePageNames"), model.indexOf("visiblePageNames = initialVisiblePageNames"));
+  for (const page of ["concierge", "media", "scanner"]) {
+    assert.match(initialization, new RegExp(`initialVisiblePageNames\\.insert\\(SentinelPage\\.${page}\\.rawValue\\)`));
+  }
+  const chatSubmission = model.slice(model.indexOf("func submitAssistantPrompt()"));
+  assert.doesNotMatch(chatSubmission, /initialVisiblePageNames/);
+});

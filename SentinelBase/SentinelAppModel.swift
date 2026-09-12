@@ -213,6 +213,21 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
             UserDefaults.standard.set(Array(initialVisiblePageNames), forKey: "sentinelVisiblePages")
             UserDefaults.standard.set(true, forKey: "sentinelMissionControlMigration1")
         }
+        if !UserDefaults.standard.bool(forKey: "sentinelConciergeMigration1") {
+            initialVisiblePageNames.insert(SentinelPage.concierge.rawValue)
+            UserDefaults.standard.set(Array(initialVisiblePageNames), forKey: "sentinelVisiblePages")
+            UserDefaults.standard.set(true, forKey: "sentinelConciergeMigration1")
+        }
+        if !UserDefaults.standard.bool(forKey: "sentinelMediaMigration1") {
+            initialVisiblePageNames.insert(SentinelPage.media.rawValue)
+            UserDefaults.standard.set(Array(initialVisiblePageNames), forKey: "sentinelVisiblePages")
+            UserDefaults.standard.set(true, forKey: "sentinelMediaMigration1")
+        }
+        if !UserDefaults.standard.bool(forKey: "sentinelScannerMigration1") {
+            initialVisiblePageNames.insert(SentinelPage.scanner.rawValue)
+            UserDefaults.standard.set(Array(initialVisiblePageNames), forKey: "sentinelVisiblePages")
+            UserDefaults.standard.set(true, forKey: "sentinelScannerMigration1")
+        }
 
         visiblePageNames = initialVisiblePageNames
 
@@ -896,21 +911,6 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
 
         guard (!prompt.isEmpty || !chatAttachments.isEmpty), !isSendingChat else {
             return
-        }
-        if !UserDefaults.standard.bool(forKey: "sentinelConciergeMigration1") {
-            initialVisiblePageNames.insert(SentinelPage.concierge.rawValue)
-            UserDefaults.standard.set(Array(initialVisiblePageNames), forKey: "sentinelVisiblePages")
-            UserDefaults.standard.set(true, forKey: "sentinelConciergeMigration1")
-        }
-        if !UserDefaults.standard.bool(forKey: "sentinelMediaMigration1") {
-            initialVisiblePageNames.insert(SentinelPage.media.rawValue)
-            UserDefaults.standard.set(Array(initialVisiblePageNames), forKey: "sentinelVisiblePages")
-            UserDefaults.standard.set(true, forKey: "sentinelMediaMigration1")
-        }
-        if !UserDefaults.standard.bool(forKey: "sentinelScannerMigration1") {
-            initialVisiblePageNames.insert(SentinelPage.scanner.rawValue)
-            UserDefaults.standard.set(Array(initialVisiblePageNames), forKey: "sentinelVisiblePages")
-            UserDefaults.standard.set(true, forKey: "sentinelScannerMigration1")
         }
         if chatError != nil, chatMessages.last?.role == .user,
            chatMessages.last?.text == prompt, chatAttachments.isEmpty {
