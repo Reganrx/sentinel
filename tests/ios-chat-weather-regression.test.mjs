@@ -38,3 +38,10 @@ test("chat capability questions do not consume provider quota", () => {
   assert.match(model, /generate images/);
   assert.match(root, /Your message is saved\. Retry after a short pause\./);
 });
+
+test("mobile home and notifications provide direct operational navigation", () => {
+  assert.match(root, /Tap the reactor for live controls/);
+  assert.match(root, /reactorControl\("Mission"/);
+  assert.match(root, /notificationDestination/);
+  assert.match(root, /app\.markActivityRead\(item\.id\); app\.selected/);
+});

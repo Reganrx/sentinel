@@ -122,7 +122,7 @@ private struct SentinelPageView: View {
     private var travel: some View { SentinelTravelWorkspace(section: $travelSection) }
     private var weather: some View { SentinelWeatherDashboard(section: $weatherSection) }
     private var missionControl: some View { SentinelMissionControl() }
-    private var notifications: some View { Card(title: "ACTIVITY", symbol: "bell.badge.fill") { HStack { Toggle("Unread only", isOn: $app.showUnreadOnly); Spacer(); if app.unreadActivityCount > 0 { Button("Mark all as read") { app.markAllActivityRead() }.buttonStyle(.borderedProminent) } }; ForEach(app.filteredActivity) { item in HStack(alignment: .top) { Image(systemName: item.symbol).foregroundStyle(Color(uiColor: app.accentColor)); VStack(alignment: .leading) { Text(item.title).bold(); Text(item.detail).font(.caption).foregroundStyle(.secondary) }; Spacer(); if !item.isRead { Button { app.markActivityRead(item.id) } label: { Image(systemName: "checkmark.circle") } } } } } }
+    private var notifications: some View { Card(title: "ACTIVITY", symbol: "bell.badge.fill") { HStack { Toggle("Unread only", isOn: $app.showUnreadOnly); Spacer(); if app.unreadActivityCount > 0 { Button("Mark all as read") { app.markAllActivityRead() }.buttonStyle(.borderedProminent) } }; ForEach(app.filteredActivity) { item in Button { app.markActivityRead(item.id); app.selected = notificationDestination(item) } label: { HStack(alignment: .top) { Image(systemName: item.symbol).foregroundStyle(Color(uiColor: app.accentColor)); VStack(alignment: .leading) { Text(item.title).bold().foregroundStyle(.primary); Text(item.detail).font(.caption).foregroundStyle(.secondary) }; Spacer(); if !item.isRead { Image(systemName: "circle.fill").font(.system(size: 7)).foregroundStyle(Color(uiColor: app.accentColor)) }; Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary) } }.buttonStyle(.plain); Divider().opacity(0.2) } } }
     private var settings: some View { VStack(alignment: .leading, spacing: 16) {
         Card(title: "SENTINEL CONTROL CENTRE", symbol: "slider.horizontal.3") { StatusRow("Status", app.status, good: app.cloudOnline); StatusRow("Native app", app.nativeVersion, good: true); StatusRow("Content", "v\(app.contentVersion)", good: true); HStack { Button("Check for updates") { Task { await app.checkForUpdates() } }.buttonStyle(.borderedProminent); Button("How to use") { helpPresented = true }.buttonStyle(.bordered) } }
         Card(title: "EXPERIENCE", symbol: "paintpalette.fill") { Picker("Accent colour", selection: Binding(get: { app.accentTheme }, set: { app.setAccentTheme($0) })) { ForEach(SentinelAccentTheme.allCases) { Text($0.rawValue).tag($0) } }.pickerStyle(.menu); Picker("Reactor animation", selection: Binding(get: { app.reactorAnimation }, set: { app.setReactorAnimation($0) })) { ForEach(SentinelReactorAnimation.allCases) { Text($0.rawValue).tag($0) } }.pickerStyle(.segmented); Text("Visible pages").font(.caption.bold()).foregroundStyle(.secondary); ForEach(SentinelPage.corePages.filter { $0 != .home && $0 != .settings }) { page in Toggle(page.rawValue, isOn: Binding(get: { app.visiblePageNames.contains(page.rawValue) }, set: { app.setPageVisible(page, visible: $0) })) } }
@@ -141,6 +141,7 @@ private struct SentinelPageView: View {
     private var batteryColor: Color { guard let level = app.localSystem.batteryLevel else { return .secondary }; return level > 20 ? Color(uiColor: app.accentColor) : .orange }
     private func formattedUptime(_ interval: TimeInterval) -> String { let total = Int(interval); return "\(total / 3600)h \((total % 3600) / 60)m" }
     private func sendHomeQuickCommand() { showHomeQuickReply = true; Task { await app.submitAssistantPrompt() } }
+    private func notificationDestination(_ item: SentinelActivity) -> SentinelPage { let text = "\(item.title) \(item.detail)".lowercased(); if text.contains("weather") || text.contains("rain") { return .weather }; if text.contains("flight") || text.contains("travel") { return .travel }; if text.contains("security") || text.contains("automation") || text.contains("desktop") { return .missionControl }; return .system }
     private func homeShortcutSubtitle(_ page: SentinelPage) -> String { switch page { case .chat: "Ready"; case .weather: app.weather?.conditionName ?? "Local forecast"; case .navigation: app.lastKnownLocation == nil ? "Set location" : "Current location"; case .travel: app.trips.first?.title ?? "No trip planned"; default: "Open" } }
 }
 
@@ -731,15 +732,24 @@ private struct SentinelCameraPicker: UIViewControllerRepresentable {
 
 private struct HomeHero: View {
     @EnvironmentObject private var app: SentinelAppModel
+    @State private var controlsExpanded = false
     private var accent: Color { Color(uiColor: app.accentColor) }
     private var greeting: String { let hour = Calendar.current.component(.hour, from: .now); return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening" }
     var body: some View {
         VStack(spacing: 10) {
             HStack(alignment: .firstTextBaseline) { VStack(alignment: .leading, spacing: 2) { Text(greeting).font(.title2.weight(.semibold)); Text(app.cloudOnline ? "Sentinel is ready" : "Sentinel is standing by").font(.subheadline).foregroundStyle(.secondary) }; Spacer(); Label(app.cloudOnline ? "ONLINE" : "OFFLINE", systemImage: "circle.fill").font(.caption.bold()).foregroundStyle(app.cloudOnline ? .green : .orange) }
-            SentinelReactorView(state: app.isSendingChat ? .thinking : (app.cloudOnline ? .online : .offline), accent: accent, animation: app.reactorAnimation).frame(height: 292).accessibilityLabel("Sentinel reactor: \(app.cloudOnline ? "online" : "offline")")
+            SentinelReactorView(state: app.isSendingChat ? .thinking : (app.cloudOnline ? .online : .offline), accent: accent, animation: app.reactorAnimation).frame(height: 292).contentShape(Circle()).onTapGesture { withAnimation(.snappy) { controlsExpanded.toggle() } }.accessibilityLabel("Sentinel reactor: \(app.cloudOnline ? "online" : "offline"). Tap for controls")
+            Text(controlsExpanded ? "Tap the reactor to close controls" : "Tap the reactor for live controls").font(.caption2).foregroundStyle(.secondary)
+            if controlsExpanded {
+                VStack(spacing: 10) {
+                    HStack { reactorControl("Chat", "bubble.left.and.bubble.right.fill", .chat); reactorControl("Mission", "shield.lefthalf.filled", .missionControl); reactorControl("Weather", "cloud.sun.fill", .weather) }
+                    HStack { Label(app.companionPaired ? "Desktop connected" : "Desktop offline", systemImage: "desktopcomputer"); Spacer(); Label("\(app.unreadActivityCount) unread", systemImage: "bell.badge.fill") }.font(.caption).foregroundStyle(.secondary)
+                }.padding(12).background(accent.opacity(0.09), in: RoundedRectangle(cornerRadius: 16)).transition(.move(edge: .top).combined(with: .opacity))
+            }
             HStack(spacing: 0) { statusItem("bolt.fill", "SERVICES", app.mobileAccessStatus == "Independent access" ? "Independent" : app.mobileAccessStatus); Divider().frame(height: 30); statusItem("link", "SYNC", app.companionPaired ? "Paired" : "Offline"); Divider().frame(height: 30); statusItem("number", "VERSION", app.nativeVersion) }.padding(.vertical, 10).background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16)).overlay(RoundedRectangle(cornerRadius: 16).stroke(accent.opacity(0.16)))
         }.padding(.top, 2)
     }
+    private func reactorControl(_ title: String, _ symbol: String, _ page: SentinelPage) -> some View { Button { app.selected = page } label: { VStack(spacing: 5) { Image(systemName: symbol).font(.title3); Text(title).font(.caption.bold()) }.frame(maxWidth: .infinity).padding(.vertical, 9) }.buttonStyle(.bordered).tint(accent) }
     private func statusItem(_ icon: String, _ label: String, _ value: String) -> some View { HStack(spacing: 6) { Image(systemName: icon).font(.caption).foregroundStyle(accent); VStack(alignment: .leading, spacing: 1) { Text(label).font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary); Text(value).font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.72) } }.frame(maxWidth: .infinity, alignment: .center).padding(.horizontal, 7) }
 }
 
