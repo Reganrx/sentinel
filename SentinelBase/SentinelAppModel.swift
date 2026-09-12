@@ -1707,10 +1707,19 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
 
     private func loadCachedWeather() {
         if let data = UserDefaults.standard.data(forKey: "sentinelRadarMetadata"), let saved = try? JSONDecoder().decode(SentinelRadarMetadata.self, from: data) {
-            radarMetadata = saved.sorted
-            radarFrameCount = saved.frames.count
-            radarLatestFrame = saved.frames.last?.date.formatted(date: .omitted, time: .shortened) ?? "No frames"
-            radarStatus = "Showing cached radar metadata."
+            if saved.provider.caseInsensitiveCompare("WeatherAPI") == .orderedSame {
+                radarMetadata = saved.sorted
+                radarFrameCount = saved.frames.count
+                radarLatestFrame = saved.frames.last?.date.formatted(date: .omitted, time: .shortened) ?? "No frames"
+                radarStatus = "Showing cached WeatherAPI radar metadata."
+            } else {
+                UserDefaults.standard.removeObject(forKey: "sentinelRadarMetadata")
+                UserDefaults.standard.removeObject(forKey: "sentinelRadarMetadataDate")
+                radarMetadata = nil
+                radarFrameCount = 0
+                radarLatestFrame = "No WeatherAPI frames"
+                radarStatus = "Legacy radar cache removed. Refreshing WeatherAPI radar…"
+            }
         }
         guard let data =
                 UserDefaults.standard.data(

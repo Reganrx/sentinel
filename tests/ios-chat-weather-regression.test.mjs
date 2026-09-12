@@ -17,6 +17,14 @@ test("radar rain details use WeatherAPI hourly amount and future hours", () => {
   assert.match(weather, /willItRain = "will_it_rain"/);
   assert.match(root, /ForEach\(futureHours\(weather, limit: 6\)/);
   assert.match(root, /hourlyRainAmount/);
+  assert.match(root, /dateInterval\(of: \.hour, for: \.now\)/);
+  assert.match(root, /weatherDate\(\$0\.element\) >= nextHour/);
+});
+
+test("legacy RainViewer cache cannot reappear", () => {
+  assert.match(model, /caseInsensitiveCompare\("WeatherAPI"\)/);
+  assert.match(model, /Legacy radar cache removed/);
+  assert.match(model, /removeObject\(forKey: "sentinelRadarMetadata"\)/);
 });
 
 test("chat capability questions do not consume provider quota", () => {
