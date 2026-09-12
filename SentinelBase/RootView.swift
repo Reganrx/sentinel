@@ -483,7 +483,7 @@ private struct SentinelWeatherDashboard: View {
 }
 private struct WeatherDaySelection: Identifiable { let index: Int; var id: Int { index } }
 
-/// Keeps the base map alive while replacing only the selected RainViewer tile overlay.
+/// Keeps the base map alive while replacing only the selected WeatherAPI precipitation overlay.
 private struct RadarTileMap: UIViewRepresentable {
     let tileTemplate: String?
     let centre: CLLocationCoordinate2D?

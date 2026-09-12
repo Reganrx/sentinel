@@ -8,7 +8,9 @@ const baseUrl = `http://127.0.0.1:${port}`;
 let server;
 
 async function waitUntilReady() {
-  const deadline = Date.now() + 15_000;
+  // Hardware discovery can take longer than 15 seconds on a cold Windows
+  // start. Keep this a readiness allowance, not a security assertion timeout.
+  const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
     try {
       const response = await fetch(baseUrl, {
