@@ -679,6 +679,10 @@ export class SentinelCoordinator {
       ["home", /\bhome(?: page| screen)?\b/], ["chat", /\bchat(?: page| screen)?\b/],
       ["navigation", /\b(?:navigation|map|maps)(?: page| screen)?\b/],
       ["travel", /\b(?:travel|flights?)(?: page| screen)?\b/], ["weather", /\bweather(?: page| screen)?\b/],
+      ["mission control", /\b(?:mission control|home command|home control|security|automation)(?: page| screen)?\b/],
+      ["concierge", /\bconcierge(?: page| screen)?\b/],
+      ["media", /\b(?:media|music)(?: page| screen)?\b/],
+      ["device scanner", /\b(?:device scanner|network centre|scanner)(?: page| screen)?\b/],
       ["notifications", /\bnotifications?(?: page| screen)?\b/], ["settings", /\bsettings?(?: page| screen)?\b/],
       ["system", /\b(?:system|system vitals)(?: page| screen)?\b/],
     ];

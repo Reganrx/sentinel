@@ -7,6 +7,7 @@ import PhotosUI
 struct RootView: View {
     @EnvironmentObject private var app: SentinelAppModel
     @EnvironmentObject private var live: LiveTalkManager
+    @StateObject private var dj = MobileDJManager()
     @State private var browsePresented = false
     @State private var navigationPath: [SentinelPage] = []
     var body: some View {
@@ -15,6 +16,7 @@ struct RootView: View {
                 .navigationDestination(for: SentinelPage.self) { SentinelPageView(page: $0) }
                 .toolbar { ToolbarItemGroup(placement: .topBarTrailing) { Button { live.open(conversationId: app.conversationID, enabledServices: app.enabledMobileServices.sorted()) } label: { Image(systemName: liveIcon).symbolEffect(.pulse, options: .repeating, isActive: live.state == .thinking || live.state == .speaking).foregroundStyle(Color(uiColor: app.accentColor)) }.accessibilityLabel(liveAccessibilityLabel); Button { browsePresented = true } label: { Label("Browse", systemImage: "square.grid.2x2") } } }
         }
+        .environmentObject(dj)
         .tint(Color(uiColor: app.accentColor)).preferredColorScheme(.dark)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if app.selected != .chat { SentinelBottomBar(browsePresented: $browsePresented) }
@@ -30,6 +32,7 @@ struct RootView: View {
         }
         .sheet(isPresented: $live.isPanelPresented) { TalkWithSentinelView() }
         .onAppear { live.onVerifiedTool = { service, result in app.applyVerifiedLiveTool(service: service, result: result) } }
+        .onChange(of: live.isActive) { _, active in if active { dj.stopAll() } }
         .overlay { if app.isLocked { SentinelLockView() } }
         .alert("Allow independent mobile service access?", isPresented: $app.showMobileAccessConsent) { Button("Not now", role: .cancel) {}; Button("Allow") { Task { await app.enrolMobileAccess() } } } message: { Text("Approved services use the secure Sentinel relay. API keys are never copied to this iPhone.") }
     }
@@ -105,6 +108,9 @@ private struct SentinelPageView: View {
         case .navigation: navigation
         case .travel: travel
         case .weather: weather
+        case .concierge: concierge
+        case .media: media
+        case .scanner: scanner
         case .missionControl: missionControl
         case .notifications: notifications
         case .settings: settings
@@ -115,12 +121,15 @@ private struct SentinelPageView: View {
         HomeHero()
         Card(title: "QUICK COMMAND", symbol: "sparkles") { Text("Ask Sentinel anything, dictate once, or start a live conversation.").font(.caption).foregroundStyle(.secondary); if showHomeQuickReply, let latest = app.chatMessages.last { VStack(alignment: .leading, spacing: 5) { Text(latest.role == .user ? "YOU" : "SENTINEL").font(.caption2.bold()).foregroundStyle(Color(uiColor: app.accentColor)); Text(latest.text).font(.subheadline).textSelection(.enabled) }.padding(10).frame(maxWidth: .infinity, alignment: .leading).background(latest.role == .user ? Color(uiColor: app.accentColor).opacity(0.16) : Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 13)) }; if app.isSendingChat { HStack { ProgressView().tint(Color(uiColor: app.accentColor)); Text("Sentinel is thinking…").font(.caption).foregroundStyle(.secondary) } }; if let error = app.chatError, showHomeQuickReply { Text(error).font(.caption).foregroundStyle(.orange); Button("Retry") { Task { await app.retryAssistantPrompt() } }.buttonStyle(.bordered) }; HStack(spacing: 10) { TextField("Ask Sentinel anything…", text: $app.chatDraft, axis: .vertical).lineLimit(1...3).submitLabel(.send).onSubmit { sendHomeQuickCommand() }.textFieldStyle(.roundedBorder); Button { live.open(conversationId: app.conversationID, enabledServices: app.enabledMobileServices.sorted()) } label: { Image(systemName: "waveform.badge.mic").font(.title3) }.accessibilityLabel("Talk with Sentinel"); Button { sendHomeQuickCommand() } label: { Image(systemName: "arrow.up.circle.fill").font(.system(size: 34)) }.disabled(app.chatDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || app.isSendingChat) } }
         if let weather = app.weather { NavigationLink(value: SentinelPage.weather) { HomeWeatherCard(weather: weather, location: app.weatherDetails?.location.name, updatedAt: app.weatherUpdatedAt) }.buttonStyle(.plain).accessibilityLabel("Open weather") }
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 11), GridItem(.flexible(), spacing: 11)], spacing: 11) { ForEach([SentinelPage.chat, .weather, .navigation, .travel]) { item in NavigationLink(value: item) { HomeAction(page: item, subtitle: homeShortcutSubtitle(item)) } } }
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 11), GridItem(.flexible(), spacing: 11)], spacing: 11) { ForEach([SentinelPage.chat, .weather, .navigation, .travel, .missionControl, .concierge, .media, .scanner]) { item in NavigationLink(value: item) { HomeAction(page: item, subtitle: homeShortcutSubtitle(item)) } } }
         Card(title: "UP NEXT", symbol: "calendar") { Text(app.trips.first.map { "\($0.title) · \($0.date.formatted(date: .abbreviated, time: .shortened))" } ?? "No upcoming trips saved. Add one in Travel for a mobile briefing.") }
     } }
     private var navigation: some View { SentinelNavigationWorkspace() }
     private var travel: some View { SentinelTravelWorkspace(section: $travelSection) }
     private var weather: some View { SentinelWeatherDashboard(section: $weatherSection) }
+    private var concierge: some View { SentinelConciergeWorkspace() }
+    private var media: some View { SentinelMediaWorkspace() }
+    private var scanner: some View { SentinelScannerWorkspace() }
     private var missionControl: some View { SentinelMissionControl() }
     private var notifications: some View { Card(title: "ACTIVITY", symbol: "bell.badge.fill") { HStack { Toggle("Unread only", isOn: $app.showUnreadOnly); Spacer(); if app.unreadActivityCount > 0 { Button("Mark all as read") { app.markAllActivityRead() }.buttonStyle(.borderedProminent) } }; ForEach(app.filteredActivity) { item in Button { app.markActivityRead(item.id); app.selected = notificationDestination(item) } label: { HStack(alignment: .top) { Image(systemName: item.symbol).foregroundStyle(Color(uiColor: app.accentColor)); VStack(alignment: .leading) { Text(item.title).bold().foregroundStyle(.primary); Text(item.detail).font(.caption).foregroundStyle(.secondary) }; Spacer(); if !item.isRead { Image(systemName: "circle.fill").font(.system(size: 7)).foregroundStyle(Color(uiColor: app.accentColor)) }; Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary) } }.buttonStyle(.plain); Divider().opacity(0.2) } } }
     private var settings: some View { VStack(alignment: .leading, spacing: 16) {
@@ -142,7 +151,177 @@ private struct SentinelPageView: View {
     private func formattedUptime(_ interval: TimeInterval) -> String { let total = Int(interval); return "\(total / 3600)h \((total % 3600) / 60)m" }
     private func sendHomeQuickCommand() { showHomeQuickReply = true; Task { await app.submitAssistantPrompt() } }
     private func notificationDestination(_ item: SentinelActivity) -> SentinelPage { let text = "\(item.title) \(item.detail)".lowercased(); if text.contains("weather") || text.contains("rain") { return .weather }; if text.contains("flight") || text.contains("travel") { return .travel }; if text.contains("security") || text.contains("automation") || text.contains("desktop") { return .missionControl }; return .system }
-    private func homeShortcutSubtitle(_ page: SentinelPage) -> String { switch page { case .chat: "Ready"; case .weather: app.weather?.conditionName ?? "Local forecast"; case .navigation: app.lastKnownLocation == nil ? "Set location" : "Current location"; case .travel: app.trips.first?.title ?? "No trip planned"; default: "Open" } }
+    private func homeShortcutSubtitle(_ page: SentinelPage) -> String { switch page { case .chat: "Ready"; case .weather: app.weather?.conditionName ?? "Local forecast"; case .navigation: app.lastKnownLocation == nil ? "Set location" : "Current location"; case .travel: app.trips.first?.title ?? "No trip planned"; case .concierge: "Plan and review an order"; case .missionControl: "Home and security"; case .media: "Windows playback"; case .scanner: "Review your devices"; default: "Open" } }
+}
+
+private struct SentinelConciergeWorkspace: View {
+    @EnvironmentObject private var app: SentinelAppModel
+    @State private var reviewed = false
+    @State private var provider = "Just Eat"
+    private var accent: Color { Color(uiColor: app.accentColor) }
+    private let providers = ["Just Eat", "Deliveroo", "Uber Eats", "Domino's"]
+    private var handoffURL: URL? {
+        let postcode = app.conciergePostcode.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch provider {
+        case "Just Eat": return postcode.isEmpty ? nil : URL(string: "https://www.just-eat.co.uk/area/\(postcode.replacingOccurrences(of: " ", with: "").addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "")")
+        case "Deliveroo": return URL(string: "https://deliveroo.co.uk/menu")
+        case "Uber Eats": return URL(string: "https://www.ubereats.com/gb")
+        default: return URL(string: "https://www.dominos.co.uk/")
+        }
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Card(title: "PERSONAL SERVICE", symbol: "sparkles") {
+                Text("Describe an order, inspect Sentinel's suggested basket, then choose a provider yourself. No order or payment is placed in Sentinel.").font(.subheadline).foregroundStyle(.secondary)
+                TextField("What would you like?", text: $app.conciergeRequest, axis: .vertical).lineLimit(3...6).textFieldStyle(.roundedBorder)
+                Stepper("People: \(app.conciergePeople)", value: $app.conciergePeople, in: 1...12)
+                TextField("Allergies or dietary needs", text: $app.conciergeAllergies).textFieldStyle(.roundedBorder)
+                HStack { Text("Planning budget"); Spacer(); TextField("GBP", value: $app.conciergeBudget, format: .currency(code: "GBP")).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(maxWidth: 105) }
+                Button(app.isPlanningConcierge ? "Planning…" : "Build basket") { reviewed = false; Task { await app.planConciergeOrder() } }.buttonStyle(.borderedProminent).tint(accent).disabled(app.isPlanningConcierge || app.conciergeRequest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Text(app.conciergeStatus).font(.caption).foregroundStyle(.secondary)
+            }
+            if let plan = app.conciergePlan {
+                Card(title: "REVIEW BASKET", symbol: "checklist") {
+                    Text(plan.summary).font(.headline)
+                    Text("\(plan.quantity) × \(plan.size) · \(plan.crust) crust").font(.subheadline).foregroundStyle(.secondary)
+                    ForEach(Array(plan.pizzas.enumerated()), id: \.offset) { entry in
+                        VStack(alignment: .leading, spacing: 3) { Text(entry.element.name).font(.subheadline.bold()); if !entry.element.toppings.isEmpty { Text("Toppings: \(entry.element.toppings.joined(separator: ", "))") }; if !entry.element.remove.isEmpty { Text("Remove: \(entry.element.remove.joined(separator: ", "))") }; if !entry.element.notes.isEmpty { Text(entry.element.notes) } }.font(.caption).frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if !plan.sides.isEmpty { Text("Sides: \(plan.sides.joined(separator: ", "))").font(.caption) }
+                    if !plan.drinks.isEmpty { Text("Drinks: \(plan.drinks.joined(separator: ", "))").font(.caption) }
+                    Text("Estimated only: \(plan.estimatedTotal, format: .currency(code: "GBP"))").font(.subheadline.bold())
+                    if app.conciergeBudget > 0 && plan.estimatedTotal > app.conciergeBudget { Text("Estimated cost exceeds your budget.").foregroundStyle(.orange) }
+                    ForEach(plan.warnings, id: \.self) { Text("⚠︎ \($0)").font(.caption).foregroundStyle(.orange) }
+                    if !app.conciergeAllergies.isEmpty { Text("The restaurant must confirm all allergy requirements before you order.").font(.caption.bold()).foregroundStyle(.orange) }
+                    Toggle("I have reviewed this plan", isOn: $reviewed)
+                }
+                Card(title: "PROVIDER HANDOFF", symbol: "arrow.up.right.square") {
+                    TextField("Delivery postcode", text: $app.conciergePostcode).textInputAutocapitalization(.characters).textFieldStyle(.roundedBorder)
+                    Picker("Provider", selection: $provider) { ForEach(providers, id: \.self) { Text($0) } }.pickerStyle(.menu)
+                    if let url = handoffURL, reviewed {
+                        Link("Open \(provider)", destination: url).buttonStyle(.borderedProminent).tint(accent)
+                    } else { Text("Review the basket and add a postcode where needed to open the provider.").font(.caption).foregroundStyle(.secondary) }
+                    Text("Check the live menu, prices and dietary information with the provider. Sentinel does not submit or pay for an order.").font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
+
+private struct SentinelScannerWorkspace: View {
+    @EnvironmentObject private var app: SentinelAppModel
+    @State private var query = ""
+    @State private var filter = "All"
+    private let filters = ["All", "New", "Trusted", "Unknown", "Bluetooth", "Network"]
+    private var accent: Color { Color(uiColor: app.accentColor) }
+    private var devices: [PersonalScannedDevice] {
+        app.scannedDevices.filter { device in
+            let matchesQuery = query.isEmpty || "\(device.name) \(device.address ?? "") \(device.mac ?? "") \(device.interfaceName ?? "")".localizedCaseInsensitiveContains(query)
+            let matchesFilter: Bool
+            switch filter {
+            case "New": matchesFilter = app.scannerNewIDs.contains(device.id)
+            case "Trusted": matchesFilter = app.trustedDeviceIDs.contains(device.id)
+            case "Unknown": matchesFilter = !app.trustedDeviceIDs.contains(device.id)
+            case "Bluetooth": matchesFilter = device.kind == "bluetooth"
+            case "Network": matchesFilter = device.kind == "network"
+            default: matchesFilter = true
+            }
+            return matchesQuery && matchesFilter
+        }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Card(title: "DEVICE SCANNER", symbol: "network") {
+                Text("Review devices observed by your paired Windows computer. This reads existing Bluetooth and network records; it does not probe or control devices.").font(.caption).foregroundStyle(.secondary)
+                Button(app.isScanningDevices ? "Scanning…" : "Run safe scan") { Task { await app.scanPersonalDevices() } }.buttonStyle(.borderedProminent).tint(accent).disabled(app.isScanningDevices)
+                Text(app.scannerStatus).font(.caption).foregroundStyle(.secondary)
+                Text("Developer Mode must be unlocked in Personal. The phone must be paired on the same Wi-Fi.").font(.caption2).foregroundStyle(.secondary)
+            }
+            if !app.scannedDevices.isEmpty {
+                Card(title: "INVENTORY", symbol: "checklist") {
+                    HStack { StatusRow("Observed", "\(app.scannedDevices.count)", good: true); StatusRow("New", "\(app.scannerNewIDs.count)", good: app.scannerNewIDs.isEmpty) }
+                    TextField("Search devices or addresses", text: $query).textFieldStyle(.roundedBorder)
+                    Picker("Filter", selection: $filter) { ForEach(filters, id: \.self) { Text($0) } }.pickerStyle(.menu)
+                    if devices.isEmpty { Text("No devices match this filter.").font(.caption).foregroundStyle(.secondary) }
+                }
+                ForEach(devices) { device in
+                    Card(title: device.name, symbol: device.kind == "bluetooth" ? "dot.radiowaves.left.and.right" : "network") {
+                        HStack { Text(device.kind.capitalized).font(.caption).foregroundStyle(.secondary); if app.scannerNewIDs.contains(device.id) { Text("NEW").font(.caption2.bold()).foregroundStyle(.orange) }; Spacer(); Text(device.support == "ready" ? "Supported" : device.support == "needs-integration" ? "Integration needed" : "Information only").font(.caption2).foregroundStyle(accent) }
+                        Text(device.detail).font(.caption).foregroundStyle(.secondary)
+                        if let address = device.address { StatusRow("Address", address, good: true) }
+                        if let mac = device.mac { StatusRow("Hardware", mac, good: true) }
+                        if let interface = device.interfaceName { StatusRow("Connection", interface, good: true) }
+                        HStack { Button(app.trustedDeviceIDs.contains(device.id) ? "Trusted" : "Mark trusted") { app.setDeviceTrusted(device, trusted: !app.trustedDeviceIDs.contains(device.id)) }.buttonStyle(.bordered); if let address = device.address ?? device.mac { Button("Copy address") { UIPasteboard.general.string = address }.buttonStyle(.bordered) } }
+                    }
+                }
+                Card(title: "SCAN NOTES", symbol: "info.circle") { ForEach(app.scannerNotes, id: \.self) { Text($0).font(.caption).foregroundStyle(.secondary) }; Text("Trusted is your own label; it never grants Sentinel access.").font(.caption2).foregroundStyle(.secondary) }
+            }
+        }
+    }
+}
+
+private struct SentinelMediaWorkspace: View {
+    @EnvironmentObject private var app: SentinelAppModel
+    @EnvironmentObject private var dj: MobileDJManager
+    @EnvironmentObject private var live: LiveTalkManager
+    @State private var importingMusic = false
+    private var accent: Color { Color(uiColor: app.accentColor) }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Card(title: "MOBILE DJ", symbol: "waveform") {
+                Text("Mix audio files stored on this iPhone. The title shown on each deck comes from the file actually loaded there.").font(.caption).foregroundStyle(.secondary)
+                if live.isActive { Text("Pause or end Live Talk before starting DJ playback, so the microphone session stays uninterrupted.").font(.caption).foregroundStyle(.orange) }
+                Button { importingMusic = true } label: { Label("Import tracks", systemImage: "square.and.arrow.down") }.buttonStyle(.borderedProminent).tint(accent)
+                Toggle("Auto mix near track end", isOn: $dj.autoMix)
+                Text(dj.status).font(.caption).foregroundStyle(.secondary)
+            }
+            djDeck("A", playing: dj.isPlayingA, progress: dj.progressA)
+            djDeck("B", playing: dj.isPlayingB, progress: dj.progressB)
+            Card(title: "MIXER", symbol: "slider.horizontal.3") {
+                HStack { Text("A").font(.caption.bold()); Slider(value: $dj.crossfade, in: 0...1).tint(accent); Text("B").font(.caption.bold()) }
+                HStack { Button("Mix next") { dj.mixNext() }.buttonStyle(.borderedProminent).tint(accent).disabled(live.isActive); Button("Stop both") { dj.stopAll() }.buttonStyle(.bordered) }
+            }
+            if !dj.tracks.isEmpty { Card(title: "TRACK LIBRARY", symbol: "list.bullet") {
+                ForEach(dj.tracks) { track in
+                    VStack(alignment: .leading, spacing: 5) { Text(track.title).font(.subheadline).lineLimit(2); HStack { Button("Load A") { dj.load(track, onto: "A") }.buttonStyle(.bordered); Button("Load B") { dj.load(track, onto: "B") }.buttonStyle(.bordered) } }
+                }
+            } }
+            Card(title: "WINDOWS MEDIA", symbol: "music.note.list") {
+                Text("Control the active media session on your paired Sentinel Personal computer.").font(.caption).foregroundStyle(.secondary)
+                HStack { mediaButton("Previous", "backward.end.fill", "previous"); mediaButton("Play / pause", "playpause.fill", "playPause"); mediaButton("Next", "forward.end.fill", "next") }
+                HStack { mediaButton("Quieter", "speaker.minus.fill", "volumeDown"); mediaButton("Mute", "speaker.slash.fill", "mute"); mediaButton("Louder", "speaker.plus.fill", "volumeUp") }
+                Text(app.mediaCommandStatus).font(.caption).foregroundStyle(.secondary)
+            }
+            Card(title: "LISTEN", symbol: "headphones") {
+                Text("Open a music service on this iPhone. Its playback remains under that app's controls.").font(.caption).foregroundStyle(.secondary)
+                Link(destination: URL(string: "https://open.spotify.com/")!) { Label("Spotify", systemImage: "music.note") }
+                Link(destination: URL(string: "https://music.youtube.com/")!) { Label("YouTube Music", systemImage: "play.rectangle") }
+                Link(destination: URL(string: "https://www.bbc.co.uk/sounds")!) { Label("BBC Sounds", systemImage: "radio") }
+            }
+            Card(title: "VIRTUALDJ", symbol: "desktopcomputer") { Text("VirtualDJ/TIDAL integration remains on the Windows computer. Mobile DJ above mixes imported local tracks; it does not claim to control VirtualDJ decks.").font(.caption).foregroundStyle(.secondary) }
+        }
+        .fileImporter(isPresented: $importingMusic, allowedContentTypes: [.audio], allowsMultipleSelection: true) { result in
+            if case let .success(urls) = result { dj.importTracks(urls) }
+        }
+    }
+    private func djDeck(_ name: String, playing: Bool, progress: Double) -> some View {
+        Card(title: "DECK \(name)", symbol: "opticaldisc") {
+            HStack(spacing: 15) {
+                TimelineView(.animation) { context in
+                    Image(systemName: "opticaldisc.fill")
+                        .font(.system(size: 68, weight: .thin))
+                        .foregroundStyle(accent)
+                        .rotationEffect(.degrees(playing ? context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2) * 180 : 0))
+                        .frame(width: 75, height: 75)
+                }
+                VStack(alignment: .leading, spacing: 5) { Text(dj.title(for: name)).font(.headline).lineLimit(2); Text(playing ? "ON AIR" : progress > 0 ? "PAUSED" : "CUED").font(.caption.bold()).foregroundStyle(playing ? accent : .secondary); ProgressView(value: progress).tint(accent) }
+            }
+            Button(playing ? "Pause Deck \(name)" : "Play Deck \(name)") { dj.playPause(name) }.buttonStyle(.borderedProminent).tint(accent).disabled(live.isActive)
+        }
+    }
+    private func mediaButton(_ label: String, _ symbol: String, _ command: String) -> some View {
+        Button { Task { await app.sendPersonalMediaCommand(command) } } label: { VStack(spacing: 5) { Image(systemName: symbol).font(.title3); Text(label).font(.caption2).lineLimit(1).minimumScaleFactor(0.8) }.frame(maxWidth: .infinity).padding(.vertical, 10) }.buttonStyle(.bordered).tint(accent).disabled(app.isSendingMediaCommand)
+    }
 }
 
 private struct SentinelMissionControl: View {
@@ -151,30 +330,95 @@ private struct SentinelMissionControl: View {
     @State private var device = ""
     @State private var command = ""
     @State private var confirmCommand = false
+    @State private var brightnessDraft: [String: Double] = [:]
+    @State private var colourDraft: [String: Color] = [:]
+    @State private var goveeBrightnessDraft: [String: Double] = [:]
+    @State private var goveeColourDraft: [String: Color] = [:]
+    @State private var pendingGoveeDevice: PersonalGoveeDevice?
+    @State private var pendingGoveeOn = false
+    @State private var confirmGovee = false
     private var accent: Color { Color(uiColor: app.accentColor) }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Picker("Mission Control section", selection: $section) { Text("Overview").tag(0); Text("Security").tag(1); Text("Automation").tag(2) }.pickerStyle(.segmented)
-            if section == 0 { overview } else if section == 1 { security } else { automation }
+            Picker("Mission Control section", selection: $section) { Text("Overview").tag(0); Text("Home").tag(1); Text("Security").tag(2); Text("Automation").tag(3) }.pickerStyle(.segmented)
+            if section == 0 { overview } else if section == 1 { homeControl } else if section == 2 { security } else { automation }
+        }
+        .task(id: section) {
+            if section == 0 || section == 3 { await app.refreshMissionData() }
+            if section == 1 { await app.refreshPersonalLights(); await app.refreshGoveeDevices() }
+            if section == 2 { await app.refreshSecurity() }
         }
         .alert("Confirm home command", isPresented: $confirmCommand) { Button("Cancel", role: .cancel) {}; Button("Send") { Task { await app.queueDesktopAction(.smartHomeControl, target: device, command: "\(command) \(device)", approved: true) } } } message: { Text("Send “\(command) \(device)” to Sentinel Personal?") }
+        .confirmationDialog("Change only \(pendingGoveeDevice?.name ?? "this device")?", isPresented: $confirmGovee) { Button(pendingGoveeOn ? "Turn on" : "Turn off") { if let selected = pendingGoveeDevice { Task { await app.controlGovee(selected, control: PersonalGoveeControl(on: pendingGoveeOn)) } } } }
     }
     private var overview: some View { Group {
-        Card(title: "MISSION STATUS", symbol: "shield.lefthalf.filled") { StatusRow("Sentinel Personal", app.pairingStatus, good: app.companionPaired); StatusRow("Mobile services", app.mobileAccessStatus, good: app.hasMobileServiceAccess); Text(app.desktopActionStatus).font(.caption).foregroundStyle(.secondary); Button("Test Personal + iPhone") { Task { await app.testPersonalAndMobile() } }.buttonStyle(.borderedProminent).tint(accent) }
-        Card(title: "QUICK COMMANDS", symbol: "command") { Button("Run system check") { Task { await app.queueDesktopAction(.systemCheck) } }.buttonStyle(.bordered); Button("Open Automation in Personal") { Task { await app.queueDesktopAction(.openPage, target: "automation", command: "Open Automation") } }.buttonStyle(.bordered); Button("Open Home Control in Personal") { Task { await app.queueDesktopAction(.openPage, target: "home-control", command: "Open Home Control") } }.buttonStyle(.bordered) }
+        Card(title: "MISSION STATUS", symbol: "shield.lefthalf.filled") { StatusRow("Sentinel Personal", app.pairingStatus, good: app.companionPaired); StatusRow("Mobile services", app.mobileAccessStatus, good: app.hasMobileServiceAccess); Text(app.missionDataStatus).font(.caption).foregroundStyle(.secondary); Button("Test Personal + iPhone") { Task { await app.testPersonalAndMobile(); await app.refreshMissionData() } }.buttonStyle(.borderedProminent).tint(accent) }
+        Card(title: "CONNECTED INTEGRATIONS", symbol: "puzzlepiece.extension.fill") { if app.personalIntegrations.isEmpty { Text(app.missionDataStatus).font(.caption).foregroundStyle(.secondary) }; ForEach(app.personalIntegrations) { integration in StatusRow(integration.name, integration.connected ? "Connected" : "Not connected", good: integration.connected) } }
     } }
+    private var homeControl: some View { Group { Card(title: "HOME COMMAND", symbol: "house.fill") {
+        HStack { Text(app.homeControlStatus).font(.caption).foregroundStyle(.secondary); Spacer(); Button { Task { await app.refreshPersonalLights() } } label: { Image(systemName: "arrow.clockwise") }.accessibilityLabel("Refresh home devices") }
+        if app.personalLights.isEmpty { Text("No Hue lights are available from Personal.").font(.caption2).foregroundStyle(.secondary) }
+        ForEach(app.personalLights) { light in
+            VStack(spacing: 7) {
+                Button { Task { await app.togglePersonalLight(light) } } label: {
+                    HStack(spacing: 12) { Image(systemName: light.on ? "lightbulb.fill" : "lightbulb").font(.title3).frame(width: 28); VStack(alignment: .leading, spacing: 2) { Text(light.name).font(.subheadline.bold()); Text(light.on ? "On" : "Off").font(.caption).foregroundStyle(.secondary) }; Spacer(); if app.changingLightID == light.id { ProgressView() } else { Image(systemName: "power").foregroundStyle(light.on ? accent : .secondary) } }.frame(maxWidth: .infinity, alignment: .leading).padding(10).background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 13))
+                }.buttonStyle(.plain).disabled(app.changingLightID != nil).accessibilityLabel("Turn \(light.on ? "off" : "on") \(light.name)")
+                if light.supportsBrightness == true {
+                    HStack { Image(systemName: "sun.min").font(.caption); Slider(value: Binding(get: { brightnessDraft[light.id] ?? Double(light.brightness ?? 50) }, set: { brightnessDraft[light.id] = $0 }), in: 1...100, step: 1).tint(accent); Text("\(Int(brightnessDraft[light.id] ?? Double(light.brightness ?? 50)))%").font(.caption.monospacedDigit()).frame(width: 38); Button("Set") { Task { await app.setPersonalLightBrightness(light, brightness: Int(brightnessDraft[light.id] ?? Double(light.brightness ?? 50))) } }.buttonStyle(.bordered).disabled(app.changingLightID != nil) }
+                }
+                if light.supportsColour == true {
+                    HStack { ColorPicker("Colour", selection: Binding(get: { colourDraft[light.id] ?? accent }, set: { colourDraft[light.id] = $0 }), supportsOpacity: false); Button("Set") { Task { await app.setPersonalLightColour(light, colour: UIColor(colourDraft[light.id] ?? accent)) } }.buttonStyle(.bordered).disabled(app.changingLightID != nil) }
+                }
+            }
+        }
+    }
+    Card(title: "GOVEE DEVICES", symbol: "lightbulb.led.fill") {
+        HStack { Text(app.goveeCommandStatus).font(.caption).foregroundStyle(.secondary); Spacer(); Button { Task { await app.refreshGoveeDevices() } } label: { Image(systemName: "arrow.clockwise") }.accessibilityLabel("Refresh Govee devices") }
+        if app.personalGoveeDevices.isEmpty { Text("Connect Govee in Personal to load devices here.").font(.caption2).foregroundStyle(.secondary) }
+        ForEach(app.personalGoveeDevices) { item in
+            VStack(alignment: .leading, spacing: 8) {
+                Text(item.name).font(.subheadline.bold())
+                Text(item.model).font(.caption2).foregroundStyle(.secondary)
+                if item.controllable {
+                    HStack { Button("On") { pendingGoveeDevice = item; pendingGoveeOn = true; confirmGovee = true }.buttonStyle(.bordered); Button("Off") { pendingGoveeDevice = item; pendingGoveeOn = false; confirmGovee = true }.buttonStyle(.bordered) }.disabled(app.changingGoveeID != nil)
+                    if item.supportsBrightness { HStack { Slider(value: Binding(get: { goveeBrightnessDraft[item.id] ?? 50 }, set: { goveeBrightnessDraft[item.id] = $0 }), in: 1...100, step: 1).tint(accent); Text("\(Int(goveeBrightnessDraft[item.id] ?? 50))%").font(.caption); Button("Set") { Task { await app.controlGovee(item, control: PersonalGoveeControl(brightness: Int(goveeBrightnessDraft[item.id] ?? 50))) } }.buttonStyle(.bordered) }.disabled(app.changingGoveeID != nil) }
+                    if item.supportsColour { HStack { ColorPicker("Colour", selection: Binding(get: { goveeColourDraft[item.id] ?? accent }, set: { goveeColourDraft[item.id] = $0 }), supportsOpacity: false); Button("Set") { if let colour = goveeRGB(goveeColourDraft[item.id] ?? accent) { Task { await app.controlGovee(item, control: PersonalGoveeControl(colour: colour)) } } }.buttonStyle(.bordered) }.disabled(app.changingGoveeID != nil) }
+                } else { Text("This device reports controls unavailable.").font(.caption).foregroundStyle(.secondary) }
+                Divider().opacity(0.2)
+            }
+        }
+    } } }
+    private func goveeRGB(_ color: Color) -> PersonalGoveeControl.RGB? {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a) else { return nil }
+        return .init(r: Int((r * 255).rounded()), g: Int((g * 255).rounded()), b: Int((b * 255).rounded()))
+    }
     private var security: some View { Group {
-        Card(title: "SECURITY", symbol: "lock.shield.fill") { Text("Request a current security report from your paired Sentinel Personal computer.").font(.caption).foregroundStyle(.secondary); Button("Check security status") { Task { await app.queueDesktopAction(.securityStatus) } }.buttonStyle(.borderedProminent).tint(accent); Button("Open Security in Personal") { Task { await app.queueDesktopAction(.openPage, target: "security", command: "Open Security") } }.buttonStyle(.bordered); Text(app.desktopActionStatus).font(.caption).foregroundStyle(.secondary) }
+        Card(title: "SECURITY", symbol: "lock.shield.fill") { Text(app.missionDataStatus).font(.caption).foregroundStyle(.secondary); Button("Refresh cameras and events") { Task { await app.refreshSecurity() } }.buttonStyle(.borderedProminent).tint(accent); Text("Camera previews are requested from your paired Personal computer. They are not continuously streamed or stored on the iPhone.").font(.caption2).foregroundStyle(.secondary) }
+        if app.personalRingDevices.isEmpty { Card(title: "CAMERAS", symbol: "video") { Text("Connect Ring in Personal to view your camera status here.").font(.caption).foregroundStyle(.secondary) } }
+        ForEach(app.personalRingDevices) { camera in Card(title: camera.name, symbol: camera.kind == "doorbell" ? "doorbell.fill" : "video.fill") {
+            StatusRow("Status", camera.online ? "Online" : "Offline", good: camera.online)
+            StatusRow("Model", camera.model, good: true)
+            if let battery = camera.battery { StatusRow("Battery", "\(Int(battery))%", good: battery > 20) }
+            if let data = app.personalCameraSnapshots[camera.id], let image = UIImage(data: data) { Image(uiImage: image).resizable().scaledToFit().clipShape(RoundedRectangle(cornerRadius: 12)).accessibilityLabel("Latest preview from \(camera.name)") }
+            Button("Refresh preview") { Task { await app.refreshCameraSnapshot(id: camera.id) } }.buttonStyle(.bordered).disabled(!camera.online)
+        } }
+        Card(title: "RECENT EVENTS", symbol: "bell.badge.fill") { if app.personalRingEvents.isEmpty { Text("No verified Ring events were supplied.").font(.caption).foregroundStyle(.secondary) }; ForEach(app.personalRingEvents) { event in HStack { Image(systemName: event.kind == "motion" ? "figure.walk" : "bell.fill").foregroundStyle(accent); VStack(alignment: .leading) { Text("\(event.kind.capitalized) · \(event.deviceName)").font(.subheadline); Text(eventTime(event.occurredAt)).font(.caption2).foregroundStyle(.secondary) }; Spacer() } } }
     } }
     private var automation: some View { Group {
-        Card(title: "HOME COMMAND", symbol: "house.and.flag.fill") { TextField("Device, room or scene", text: $device).textFieldStyle(.roundedBorder); TextField("Command, e.g. turn off", text: $command).textFieldStyle(.roundedBorder); Button("Review command") { confirmCommand = true }.buttonStyle(.borderedProminent).tint(accent).disabled(device.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty); Text("Commands require the paired Personal app and retain its approval and device-safety rules.").font(.caption2).foregroundStyle(.secondary) }
-        Card(title: "AUTOMATION", symbol: "bolt.badge.clock.fill") { Button("Open Automation in Personal") { Task { await app.queueDesktopAction(.openPage, target: "automation", command: "Open Automation") } }.buttonStyle(.borderedProminent).tint(accent); Text(app.desktopActionStatus).font(.caption).foregroundStyle(.secondary) }
+        Card(title: "AUTOMATION", symbol: "bolt.badge.clock.fill") { Text(app.missionDataStatus).font(.caption).foregroundStyle(.secondary); Button("Refresh integrations") { Task { await app.refreshMissionData() } }.buttonStyle(.borderedProminent).tint(accent); ForEach(app.personalIntegrations) { integration in VStack(alignment: .leading, spacing: 3) { StatusRow(integration.name, integration.connected ? "Connected" : "Not connected", good: integration.connected); Text(integration.description).font(.caption2).foregroundStyle(.secondary) } }; Text("Manage credentials, rooms and routines in Personal. The mobile app never displays integration secrets.").font(.caption2).foregroundStyle(.secondary) }
+        Card(title: "REVIEWED HOME COMMAND", symbol: "house.and.flag.fill") { TextField("One device name", text: $device).textFieldStyle(.roundedBorder); TextField("Turn on or turn off", text: $command).textFieldStyle(.roundedBorder); Button("Review command") { confirmCommand = true }.buttonStyle(.borderedProminent).tint(accent).disabled(device.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty); Text(app.desktopActionStatus).font(.caption).foregroundStyle(.secondary); Text("Only a single, explicitly approved on/off command can be queued for Personal.").font(.caption2).foregroundStyle(.secondary) }
     } }
+    private func eventTime(_ value: String) -> String {
+        let precise = ISO8601DateFormatter()
+        precise.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = precise.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+        return date?.formatted(date: .abbreviated, time: .shortened) ?? value
+    }
 }
 
 private struct MobileServicesDiagnosticsPanel: View {
     @EnvironmentObject private var app: SentinelAppModel
-    @State private var cameraTarget = "Front door camera"
     @State private var smartHomeTarget = ""
     @State private var smartHomeCommand = ""
     @State private var confirmSmartHome = false
@@ -208,14 +452,7 @@ private struct MobileServicesDiagnosticsPanel: View {
             Divider().overlay(Color.white.opacity(0.1))
             Text("PAIRED DESKTOP REQUESTS").font(.caption.bold()).foregroundStyle(Color(uiColor: app.accentColor))
             Text("These requests are queued for Sentinel Personal. A queued request is not confirmation that it completed.").font(.caption2).foregroundStyle(.secondary)
-            HStack {
-                Button("System check") { Task { await app.queueDesktopAction(.systemCheck) } }.buttonStyle(.bordered)
-                Button("Security status") { Task { await app.queueDesktopAction(.securityStatus) } }.buttonStyle(.bordered)
-            }
-            HStack(spacing: 8) {
-                TextField("Camera name", text: $cameraTarget).textFieldStyle(.roundedBorder)
-                Button("Request camera") { Task { await app.queueDesktopAction(.cameraView, target: cameraTarget, command: "Show the \(cameraTarget)") } }.buttonStyle(.bordered)
-            }
+            Text("Use Mission Control for verified home devices, camera status and security events. The queued command below supports only one approved on/off change.").font(.caption2).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 7) {
                 TextField("Smart-home device", text: $smartHomeTarget).textFieldStyle(.roundedBorder)
                 TextField("Command, e.g. Turn off", text: $smartHomeCommand).textFieldStyle(.roundedBorder)
@@ -818,9 +1055,12 @@ private struct SentinelMobileHelpView: View {
     @Environment(\.dismiss) private var dismiss
     private let sections = [
         HelpSection(title: "Chat and images", detail: "Ask Sentinel normally, attach a file or photo with the plus button, or request an image in plain English. Generated images stay with the conversation; tap one for full-screen viewing and use Share to save or send it. Use History to reopen an earlier conversation."),
-        HelpSection(title: "Voice", detail: "The microphone sends one dictated message. Talk with Sentinel starts a live conversation; minimise its panel to move around without ending the session. You can ask Live Talk to open Home, Chat, Navigation, Travel, Weather, Notifications, Settings or System."),
+        HelpSection(title: "Voice", detail: "The microphone sends one dictated message. Talk with Sentinel starts a live conversation; minimise its panel to move around without ending the session. You can ask Live Talk to open Home, Chat, Navigation, Travel, Weather, Mission Control, Concierge, Media, Device Scanner, Notifications, Settings or System."),
         HelpSection(title: "Weather and navigation", detail: "Weather uses the current location and approved mobile service access. Navigation can search nearby places, calculate a route and hand the journey to Apple Maps."),
         HelpSection(title: "Travel", detail: "Save journeys and flights, review destination information, and keep readiness items together. Confirm important details with the airline or official travel guidance."),
+        HelpSection(title: "Mission Control", detail: "Home Command loads Hue and Govee devices from paired Personal on the same Wi-Fi. Tap a Hue light to toggle it; Govee uses explicit on/off buttons because its API does not report current power. Set brightness or colour only where supported. Security shows verified Ring camera state, recent events and on-demand previews. Automation shows connected integrations and accepts a single reviewed on/off command. Credentials and routines remain managed in Personal."),
+        HelpSection(title: "Concierge and Media", detail: "Concierge plans a basket through paired Personal on the same Wi-Fi. Review allergies, estimated cost and every item before opening a provider; Sentinel never places or pays for an order. Mobile DJ imports supported audio files into two local decks with a crossfader and auto mix. Media also controls active Windows playback through Personal, but cannot control other iPhone apps or claim VirtualDJ/TIDAL deck state."),
+        HelpSection(title: "Device Scanner", detail: "Unlock Developer Mode in Personal, then run a safe scan from the paired iPhone on the same Wi-Fi. Results are Personal's existing Windows Bluetooth and network records, not an iPhone-wide scan. Marking a device trusted is a private label, not control permission."),
         HelpSection(title: "Desktop sync", detail: "Pair using the six-digit code from Sentinel Personal. Mobile service permissions are separate and never copy raw provider keys to the iPhone."),
         HelpSection(title: "Updates and privacy", detail: "Native app updates arrive through TestFlight or the App Store. Sentinel content updates are checked separately. Face ID and iOS permissions remain under your control."),
     ]

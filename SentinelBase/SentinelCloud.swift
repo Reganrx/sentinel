@@ -136,6 +136,78 @@ struct SentinelCloud {
         return try await cloudCompanionRequest(path: path, method: method, body: body)
     }
 
+    func planConciergeOrder(_ request: ConciergePlanRequest) async throws -> ConciergePlan {
+        let body = try JSONEncoder().encode(request)
+        let data = try await localCompanionRequest(path: "/concierge/plan", method: "POST", body: body)
+        return try JSONDecoder().decode(ConciergePlan.self, from: data)
+    }
+
+    func personalLights() async throws -> [PersonalHueLight] {
+        let data = try await localCompanionRequest(path: "/home/lights", method: "GET", body: nil)
+        return try JSONDecoder().decode([PersonalHueLight].self, from: data)
+    }
+
+    func scanPersonalDevices() async throws -> PersonalDeviceScan {
+        let data = try await localCompanionRequest(path: "/devices/scan", method: "GET", body: nil)
+        return try JSONDecoder().decode(PersonalDeviceScan.self, from: data)
+    }
+
+    func personalIntegrations() async throws -> [PersonalIntegration] {
+        let data = try await localCompanionRequest(path: "/mission/integrations", method: "GET", body: nil)
+        return try JSONDecoder().decode([PersonalIntegration].self, from: data)
+    }
+
+    func personalGoveeDevices() async throws -> [PersonalGoveeDevice] {
+        let data = try await localCompanionRequest(path: "/mission/govee", method: "GET", body: nil)
+        return try JSONDecoder().decode([PersonalGoveeDevice].self, from: data)
+    }
+
+    func personalRingDevices() async throws -> [PersonalRingDevice] {
+        let data = try await localCompanionRequest(path: "/mission/ring/devices", method: "GET", body: nil)
+        return try JSONDecoder().decode([PersonalRingDevice].self, from: data)
+    }
+
+    func personalRingEvents() async throws -> [PersonalRingEvent] {
+        let data = try await localCompanionRequest(path: "/mission/ring/events", method: "GET", body: nil)
+        return try JSONDecoder().decode([PersonalRingEvent].self, from: data)
+    }
+
+    func personalRingSnapshot(id: String) async throws -> Data? {
+        let safeID = id.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? id
+        let data = try await localCompanionRequest(path: "/mission/ring/devices/\(safeID)/snapshot", method: "GET", body: nil)
+        let snapshot = try JSONDecoder().decode(PersonalCameraSnapshot.self, from: data)
+        return snapshot.available ? Data(base64Encoded: snapshot.data ?? "") : nil
+    }
+
+    func controlPersonalGovee(_ device: PersonalGoveeDevice, control: PersonalGoveeControl) async throws {
+        let safeID = device.id.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? device.id
+        let body = try JSONEncoder().encode(control)
+        _ = try await localCompanionRequest(path: "/home/govee/\(safeID)/control", method: "POST", body: body)
+    }
+
+    func setPersonalLight(_ light: PersonalHueLight, on: Bool) async throws {
+        let safeID = light.id.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? light.id
+        let body = try JSONEncoder().encode(["on": on])
+        _ = try await localCompanionRequest(path: "/home/lights/\(safeID)", method: "POST", body: body)
+    }
+
+    func setPersonalLightBrightness(_ light: PersonalHueLight, brightness: Int) async throws {
+        let safeID = light.id.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? light.id
+        let body = try JSONEncoder().encode(["brightness": max(1, min(100, brightness))])
+        _ = try await localCompanionRequest(path: "/home/lights/\(safeID)/brightness", method: "POST", body: body)
+    }
+
+    func setPersonalLightColour(_ light: PersonalHueLight, red: Int, green: Int, blue: Int) async throws {
+        let safeID = light.id.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? light.id
+        let body = try JSONEncoder().encode(["colour": ["r": red, "g": green, "b": blue]])
+        _ = try await localCompanionRequest(path: "/home/lights/\(safeID)/colour", method: "POST", body: body)
+    }
+
+    func sendPersonalMediaCommand(_ command: String) async throws {
+        let body = try JSONEncoder().encode(["command": command])
+        _ = try await localCompanionRequest(path: "/media/command", method: "POST", body: body)
+    }
+
     private func cloudCompanionRequest(path: String, method: String, body: Data?) async throws -> Data {
         guard let token = KeychainStore.string(for: "cloudToken") else { throw URLError(.userAuthenticationRequired) }
         let cleanPath = path.hasPrefix("/") ? path : "/" + path
@@ -153,33 +225,49 @@ struct SentinelCloud {
               let token = KeychainStore.string(for: "localToken"),
               let url = companionURL(base: base, path: path) else { throw URLError(.cannotConnectToHost) }
         var request = URLRequest(url: url)
-        request.httpMethod = method; request.httpBody = body; request.timeoutInterval = 2
+        request.httpMethod = method; request.httpBody = body; request.timeoutInterval = path == "/chat" || path == "/concierge/plan" ? 100 : path.hasPrefix("/home/") || path.hasPrefix("/mission/") || path == "/media/command" || path == "/devices/scan" ? 25 : 2
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard isSuccess(response) else { throw URLError(.badServerResponse) }
+        guard isSuccess(response) else {
+            let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            throw CompanionBridgeError(detail: value?["error"] as? String ?? "Sentinel Personal could not complete this request.")
+        }
         return data
     }
 
     func reconnectCompanion() async -> CompanionConnection? {
         guard KeychainStore.string(for: "cloudToken") != nil else { return nil }
         if (try? await localCompanionRequest(path: "/status", method: "GET", body: nil)) != nil { return .localNetwork }
-        if (try? await cloudCompanionRequest(path: "/status", method: "GET", body: nil)) != nil { return .cloudflare }
+        if let data = try? await cloudCompanionRequest(path: "/status", method: "GET", body: nil) {
+            if let status = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let local = status["local"] as? [String: Any],
+               let endpoint = local["endpoint"] as? String,
+               let token = local["token"] as? String {
+                try? KeychainStore.set(endpoint, for: "localEndpoint")
+                try? KeychainStore.set(token, for: "localToken")
+                if (try? await localCompanionRequest(path: "/status", method: "GET", body: nil)) != nil { return .localNetwork }
+            }
+            return .cloudflare
+        }
         return nil
     }
 
     func sendAssistantMessage(messages: [SentinelChatMessage], allowCloudFallback: Bool, conversationID: UUID, context: MobileChatContext, attachments: [SentinelChatAttachment] = []) async throws -> AssistantChatDelivery {
-        let prompt = AssistantChatRequest.combinedPrompt(from: messages)
+        let chatMessages = messages.suffix(20).filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        guard let lastMessage = chatMessages.last, lastMessage.apiRole == "user" else { throw AssistantChatError.invalidResponse }
+        let history = chatMessages.dropLast().map { LocalChatRequest.Message(role: $0.apiRole, content: $0.text) }
 
-        // The legacy local bridge accepts only a flat prompt. When iPhone location
-        // is available, prefer the structured Cloudflare route so it cannot lose
-        // the authoritative coordinate and guess a country from stale desktop data.
-        if context.location == nil {
-            let localBody = try JSONEncoder().encode(AssistantChatRequest(prompt: prompt))
-            if let data = try? await localCompanionRequest(path: "/chat", method: "POST", body: localBody),
-               let delivery = AssistantChatResponse.delivery(from: data) {
-                return delivery
-            }
+        let localMessage: String
+        if let location = context.location {
+            localMessage = "Current iPhone location (authoritative): \(location.latitude),\(location.longitude). Use this location for local questions.\n\n\(lastMessage.text)"
+        } else {
+            localMessage = lastMessage.text
+        }
+        let localBody = try JSONEncoder().encode(LocalChatRequest(message: localMessage, history: history))
+        if let data = try? await localCompanionRequest(path: "/chat", method: "POST", body: localBody),
+           let delivery = AssistantChatResponse.delivery(from: data) {
+            return delivery
         }
 
         guard allowCloudFallback,
@@ -199,17 +287,8 @@ struct SentinelCloud {
             }
             return delivery
         } catch {
-            // Retain a useful local fallback during a temporary cloud outage. The
-            // plain bridge receives a concise, explicit location line instead of
-            // silently using its own desktop location.
-            if let location = context.location {
-                let contextualPrompt = "Current iPhone location (authoritative): \(location.latitude),\(location.longitude). Use this location for local questions.\n\n\(prompt)"
-                let localBody = try JSONEncoder().encode(AssistantChatRequest(prompt: contextualPrompt))
-                if let localData = try? await localCompanionRequest(path: "/chat", method: "POST", body: localBody),
-                   let delivery = AssistantChatResponse.delivery(from: localData) {
-                    return delivery
-                }
-            }
+            // When the cloud provider is unavailable, use the authenticated desktop
+            // chat route over the paired local network if it is reachable.
             throw error
         }
     }
@@ -293,14 +372,15 @@ private struct MobileAccessRequest: Encodable { let requestedServices: [String];
 struct MobileAccessEnrollment: Decodable { let enabled: Bool; let services: [String]; let accessToken: String; let expiresAt: String? }
 
 enum CompanionConnection: Equatable { case localNetwork, cloudflare }
+private struct CompanionBridgeError: LocalizedError {
+    let detail: String
+    var errorDescription: String? { detail }
+}
 
-private struct AssistantChatRequest: Encodable {
-    let prompt: String
-    static func combinedPrompt(from messages: [SentinelChatMessage]) -> String {
-        messages.suffix(16).map { message in
-            "\(message.apiRole == "assistant" ? "Sentinel" : "User"): \(message.text)"
-        }.joined(separator: "\n\n")
-    }
+private struct LocalChatRequest: Encodable {
+    struct Message: Encodable { let role: String; let content: String }
+    let message: String
+    let history: [Message]
 }
 private enum AssistantChatError: LocalizedError { case cloudPermissionRequired, invalidResponse; var errorDescription: String? { switch self { case .cloudPermissionRequired: "AI Chat permission is required for the Cloudflare route."; case .invalidResponse: "Sentinel received a chat response without assistant text." } } }
 private struct AssistantChatResponse: Decodable {
