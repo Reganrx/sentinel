@@ -20,6 +20,14 @@ test("successful Xcode Cloud builds are explicitly assigned to internal TestFlig
   assert.match(settings, /distributed \? "success" : "building"/);
 });
 
+test("TestFlight assignment is recovered in the background after closing Release Centre or restarting Sentinel", () => {
+  assert.match(main, /function startXcodeCloudDistributionMonitor\(\)/);
+  assert.match(main, /reconcileLatestXcodeCloudDistribution/);
+  assert.match(main, /setInterval\(\(\) => \{ void reconcileLatestXcodeCloudDistribution\(\); \}, 60_000\)/);
+  assert.match(main, /startXcodeCloudDistributionMonitor\(\)/);
+  assert.match(main, /TestFlight distribution check will retry/);
+});
+
 test("Xcode Cloud credentials can be removed securely and remain Personal-only", () => {
   assert.match(main, /sentinel:xcode-cloud-disconnect/);
   assert.match(main, /if \(isBaseEdition\(\)\) throw new Error\("Xcode Cloud control is available only in Sentinel Personal\."\)/);

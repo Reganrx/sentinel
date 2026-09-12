@@ -867,6 +867,53 @@ async function ensureLatestSentinelTestFlightDistribution(config: XcodeCloudConf
   return { state: "assigned", buildNumber, groupName, message: `TestFlight build ${buildNumber} is available to ${groupName}.` };
 }
 
+let lastReconciledXcodeRunId = "";
+let xcodeDistributionCheckRunning = false;
+
+async function reconcileLatestXcodeCloudDistribution() {
+  if (isBaseEdition() || xcodeDistributionCheckRunning) return;
+  const config = readXcodeCloudConfig();
+  if (!config) return;
+  xcodeDistributionCheckRunning = true;
+  try {
+    const runs = await appStoreConnectRequest(config, `/v1/ciWorkflows/${encodeURIComponent(config.workflowId)}/buildRuns?limit=200`);
+    const run = Array.isArray(runs?.data)
+      ? [...runs.data].sort((left, right) => {
+          const leftDate = Date.parse(left?.attributes?.createdDate || "") || 0;
+          const rightDate = Date.parse(right?.attributes?.createdDate || "") || 0;
+          return rightDate - leftDate;
+        })[0]
+      : undefined;
+    if (!run?.id || run.id === lastReconciledXcodeRunId) return;
+    if (run.attributes?.executionProgress !== "COMPLETE" || run.attributes?.completionStatus !== "SUCCEEDED") return;
+    const distribution = await ensureLatestSentinelTestFlightDistribution(
+      config,
+      run.attributes.startedDate || run.attributes.createdDate,
+    );
+    if (distribution.state === "assigned") {
+      lastReconciledXcodeRunId = run.id;
+      writeRuntimeLog("info", "TestFlight build assigned to internal testers", {
+        runId: run.id,
+        buildNumber: distribution.buildNumber,
+        groupName: distribution.groupName,
+      });
+    }
+  } catch (error) {
+    writeRuntimeLog("warn", "TestFlight distribution check will retry", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  } finally {
+    xcodeDistributionCheckRunning = false;
+  }
+}
+
+function startXcodeCloudDistributionMonitor() {
+  if (isBaseEdition()) return;
+  void reconcileLatestXcodeCloudDistribution();
+  const timer = setInterval(() => { void reconcileLatestXcodeCloudDistribution(); }, 60_000);
+  timer.unref();
+}
+
 function validatePublisherEndpoint(value: unknown) {
   if (typeof value !== "string") throw new Error("Enter the update service address.");
   const endpoint = value.trim().replace(/\/$/, "");
@@ -1347,7 +1394,10 @@ app.whenReady().then(async () => {
   await importPersonalConfiguration();
   bootstrapBaseUpdateAuthority();
   await registerBaseInstallation();
-  if (!isBaseEdition()) releaseModuleCatalog();
+  if (!isBaseEdition()) {
+    releaseModuleCatalog();
+    startXcodeCloudDistributionMonitor();
+  }
   await createWindow(true);
   startPackagedBackend();
   await waitForBackend();
@@ -1756,6 +1806,8 @@ app.whenReady().then(async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ data: { type: "ciBuildRuns", attributes: {}, relationships: { workflow: { data: { type: "ciWorkflows", id: config.workflowId } } } } }),
     });
+    lastReconciledXcodeRunId = "";
+    setTimeout(() => { void reconcileLatestXcodeCloudDistribution(); }, 5_000).unref();
     return { started: true, runId: result?.data?.id, createdDate: result?.data?.attributes?.createdDate || new Date().toISOString() };
   });
 
