@@ -1,0 +1,21 @@
+.ui-badge{
+
+    display:inline-flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    padding:4px 10px;
+
+    border-radius:999px;
+
+    background:rgba(var(--sentinel-accent-rgb),.10);
+
+    color:#7EF5FF;
+
+    font-size:12px;
+
+    font-weight:600;
+
+}

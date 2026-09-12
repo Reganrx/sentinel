@@ -1,0 +1,118 @@
+.home-app-view .app-view-body{
+    min-height:0;
+    padding:0;
+    overflow:hidden;
+}
+
+.home-view{
+    width:100%;
+    height:auto;
+    min-height:100%;
+    display:grid;
+    grid-template-rows:auto minmax(420px, min(49vh, 570px)) auto auto;
+    justify-items:center;
+    gap:clamp(10px, 2vh, 24px);
+    padding:clamp(14px, 2vh, 26px) clamp(18px, 3vw, 46px) clamp(18px, 2.5vh, 32px);
+    position:relative;
+    background:radial-gradient(circle at 50% 36%,rgba(30,143,190,.09),transparent 36%);
+}
+
+/* The home page has several substantial groups below the reactor.  Give the
+   reactor a bounded stage and let the page scroll only when a shorter desktop
+   window genuinely cannot contain every group.  This prevents the flexible
+   stage from stretching and pushing Quick Command off-screen. */
+.home-app-view .app-view-body{
+    overflow-y:auto;
+    overflow-x:hidden;
+}
+.home-core-stage{
+    max-height:570px;
+}
+
+/* The reactor is the sole focal element on Home. The application-wide orbit
+   decoration becomes oversized at windowed desktop aspect ratios and reads as
+   broken duplicate reactor rings, so suppress it on this page only. */
+.view-home .sentinel-environment-orbit{
+    display:none;
+}
+
+.home-welcome{width:100%;max-width:1320px;display:flex;align-items:center;justify-content:space-between;gap:22px}.home-welcome p{margin:0 0 5px;color:#58d9ff;font-size:10px;font-weight:800;letter-spacing:.2em}.home-welcome h2{margin:0;color:#edfaff;font-size:clamp(20px,2.2vw,30px);letter-spacing:-.025em}.home-context-strip{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}.home-context-strip span{display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid rgba(99,216,255,.12);border-radius:999px;color:#91adbf;background:rgba(7,24,40,.48);font-size:11px;white-space:nowrap}.home-context-strip svg{color:#54d9ff}.home-context-strip .home-context-ready{color:#9eeac1;border-color:rgba(83,226,151,.17)}.home-context-strip .home-context-ready svg{color:#58e69d}.home-core-stage{position:relative;width:100%;height:100%;min-height:0;display:grid;place-items:center;isolation:isolate}.home-core-stage>.sentinel-core{position:relative;z-index:1}.home-orbit{position:absolute;top:50%;left:50%;width:min(42vw,540px);aspect-ratio:1;transform:translate(-50%,-54%);border:1px solid rgba(84,216,255,.055);border-radius:50%;pointer-events:none}.home-orbit:before,.home-orbit:after{content:"";position:absolute;width:5px;height:5px;border-radius:50%;background:#52d9ff;box-shadow:0 0 12px #52d9ff}.home-orbit:before{top:10%;left:22%}.home-orbit:after{right:7%;bottom:30%}.home-orbit--two{width:min(50vw,650px);border-style:dashed;opacity:.55;transform:translate(-50%,-54%) rotate(28deg)}
+
+.home-telemetry{position:absolute;top:35%;z-index:2;width:clamp(185px,17vw,245px);display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:11px 12px;border:1px solid rgba(82,216,255,.13);border-radius:14px;background:linear-gradient(135deg,rgba(11,36,57,.8),rgba(5,17,31,.58));box-shadow:inset 0 1px rgba(255,255,255,.025),0 14px 40px rgba(0,0,0,.16);backdrop-filter:blur(12px)}
+.home-telemetry--left{left:max(0px,calc(50% - 490px))}.home-telemetry--right{right:max(0px,calc(50% - 490px))}.home-telemetry-icon{display:grid;place-items:center;width:31px;height:31px;border-radius:9px;background:rgba(80,216,255,.09);color:#5edcff}.home-telemetry div{min-width:0;display:grid;gap:3px}.home-telemetry small{color:#5ecce8;font-size:8px;font-weight:800;letter-spacing:.16em}.home-telemetry strong{overflow:hidden;color:#d9ecf6;font-size:11px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}.home-live-dot{width:6px;height:6px;border-radius:50%;background:#55e49b;box-shadow:0 0 10px #55e49b;animation:home-live 2.2s ease-in-out infinite}
+.home-core-readouts{position:relative;z-index:3;display:flex;gap:6px;margin:0}.home-core-readouts span{display:flex;align-items:center;gap:5px;padding:5px 8px;border:1px solid rgba(82,216,255,.11);border-radius:8px;background:rgba(4,19,33,.7);color:#88a8b8;font-size:9px;white-space:nowrap}.home-core-readouts svg,.home-core-readouts b{color:#56d9ff}.home-core-readouts b{font-size:8px;letter-spacing:.1em}
+.home-activity-ribbon{width:100%;max-width:1200px;display:grid;grid-template-columns:auto repeat(3,minmax(0,1fr));align-items:center;gap:0;overflow:hidden;border:1px solid rgba(82,216,255,.11);border-radius:13px;background:rgba(5,20,35,.62);box-shadow:inset 0 1px rgba(255,255,255,.02)}.home-activity-ribbon>span{min-width:0;padding:9px 14px;color:#8da9b9;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:1px solid rgba(82,216,255,.08)}.home-activity-ribbon b{margin-right:6px;color:#d7edf6;font-weight:700}.home-activity-ribbon .home-activity-title{border-left:0;color:#62d9f7;font-size:8px;font-weight:800;letter-spacing:.16em}.home-activity-title i{display:inline-block;width:6px;height:6px;margin-right:7px;border-radius:50%;background:#56e79e;box-shadow:0 0 8px #56e79e}
+@keyframes home-live{50%{opacity:.45;transform:scale(.75)}}
+
+.home-controls{
+    width:100%;
+    display:grid;
+    justify-items:center;
+    gap:clamp(9px, 1.2vh, 14px);
+    /* The reactor caption can extend to the edge of its flexible stage on
+       medium-height desktop windows. Reserve a deliberate gutter before the
+       live readouts so the two groups never collide. */
+    padding-top:clamp(22px, 3vh, 38px);
+    position:relative;
+    z-index:2;
+}
+.home-monitoring-copy{
+    margin:0;
+    color:rgba(255,255,255,.55);
+    font-size:clamp(14px, 1.8vh, 18px);
+    line-height:1.2;
+    text-align:center;
+}
+.home-controls .quick-action{min-height:112px;padding:13px 15px}.home-controls .quick-action-text p{font-size:13px;line-height:1.35}
+.home-controls-label{width:100%;max-width:1200px;display:flex;align-items:center;gap:12px;color:#6ecfe8;font-size:9px;font-weight:800;letter-spacing:.2em}.home-controls-label i{height:1px;flex:1;background:linear-gradient(90deg,rgba(89,215,249,.2),transparent)}
+
+/* QuickChatBar is rendered into this portal target. Because home-controls
+   centres its grid children, an unsized host shrink-wraps the buttons and
+   leaves the command input looking unusually narrow. Give the host the same
+   content width as the action grid so the flexible input receives the space
+   it was designed to use. */
+#sentinel-quick-chat-host{
+    width:100%;
+    max-width:1200px;
+}
+#sentinel-quick-chat-host .quick-command-shell{
+    max-width:none;
+}
+
+/* On phone-sized layouts, keeping content usable matters more than forcing it
+   into one screen. Desktop, tablet, and TV layouts remain scroll-free. */
+@media (max-width:700px){
+    .home-app-view .app-view-body{
+        overflow:auto;
+    }
+
+    .home-view{
+        height:auto;
+        min-height:100%;
+    }
+    .home-welcome{align-items:flex-start;flex-direction:column}.home-context-strip{justify-content:flex-start}.home-orbit{width:78vw}.home-orbit--two{width:92vw}.home-telemetry{display:none}.home-core-readouts{display:none}.home-activity-ribbon{grid-template-columns:1fr}.home-activity-ribbon>span{border-left:0;border-top:1px solid rgba(82,216,255,.08)}
+}
+
+@media(max-width:1150px){.home-telemetry{display:none}}
+@media(max-height:1200px) and (min-width:701px){.home-activity-ribbon{display:none}.home-view{grid-template-rows:auto minmax(390px,min(47vh,520px)) auto}}
+@media(max-height:900px) and (min-width:701px){.home-welcome h2{font-size:20px}.home-context-strip span{padding:5px 8px}.home-view{gap:7px;padding-top:10px;grid-template-rows:auto minmax(330px,min(43vh,430px)) auto}.home-controls-label{display:none}.home-core-readouts{display:none}.home-controls{padding-top:12px}}
+
+/* A normal window has less usable height than fullscreen because of the
+   native title/menu bars. Keep the complete reactor centred, but bound its
+   artwork so Quick Command and all five action cards remain in view. */
+@media(max-height:1250px) and (min-width:701px){
+    .home-view{
+        gap:6px;
+        grid-template-rows:auto minmax(300px,360px) auto;
+        padding-top:10px;
+        padding-bottom:10px;
+    }
+    .home-core-stage{max-height:360px}
+    .home-view .sentinel-reactor{min-height:0;overflow:visible}
+    .home-view .sentinel-reactor .sentinel-reactor-art{height:min(36vh,330px)!important}
+    .home-view .sentinel-text h1{font-size:30px}
+    .home-controls{gap:7px;padding-top:34px}
+    .home-controls .quick-action{min-height:82px;padding:10px 12px}
+    .home-controls .quick-action-icon{width:42px;height:42px}
+    .home-controls .quick-action-text p{margin-top:3px;font-size:12px}
+}

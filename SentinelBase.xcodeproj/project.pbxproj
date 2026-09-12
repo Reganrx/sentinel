@@ -18,6 +18,7 @@
 		E219CFFCAB41AC0EA91BBFDE /* ConversationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E219CFFCAB41AC0EA91BBFDF /* ConversationRepository.swift */; };
 		E319CFFCAB41AC0EA91BBFDE /* WebRTCCompileCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = E319CFFCAB41AC0EA91BBFDF /* WebRTCCompileCheck.swift */; };
 		E819CFFCAB41AC0EA91BBFDE /* LiveTalkManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E819CFFCAB41AC0EA91BBFDF /* LiveTalkManager.swift */; };
+		A1B2C3D4E5F60718293A4B5C /* MobileDJManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* MobileDJManager.swift */; };
 		E419CFFCAB41AC0EA91BBFDE /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = E519CFFCAB41AC0EA91BBFDF /* WebRTC */; };
 /* End PBXBuildFile section */
 
@@ -31,6 +32,7 @@
 		E219CFFCAB41AC0EA91BBFDF /* ConversationRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationRepository.swift; sourceTree = "<group>"; };
 		E319CFFCAB41AC0EA91BBFDF /* WebRTCCompileCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRTCCompileCheck.swift; sourceTree = "<group>"; };
 		E819CFFCAB41AC0EA91BBFDF /* LiveTalkManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTalkManager.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5D /* MobileDJManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileDJManager.swift; sourceTree = "<group>"; };
 		695B9E6873AB2DD053513087 /* SentinelBase.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SentinelBase.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CACE1AE3B4E22B6FDF46A72E /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		F97C8AB0F0F47969801D50C1 /* SentinelAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentinelAppModel.swift; sourceTree = "<group>"; };
@@ -59,6 +61,7 @@
 				E219CFFCAB41AC0EA91BBFDF /* ConversationRepository.swift */,
 				E319CFFCAB41AC0EA91BBFDF /* WebRTCCompileCheck.swift */,
 				E819CFFCAB41AC0EA91BBFDF /* LiveTalkManager.swift */,
+				A1B2C3D4E5F60718293A4B5D /* MobileDJManager.swift */,
 			);
 			path = SentinelBase;
 			sourceTree = "<group>";
@@ -162,6 +165,7 @@
 				E219CFFCAB41AC0EA91BBFDE /* ConversationRepository.swift in Sources */,
 				E319CFFCAB41AC0EA91BBFDE /* WebRTCCompileCheck.swift in Sources */,
 				E819CFFCAB41AC0EA91BBFDE /* LiveTalkManager.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5C /* MobileDJManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -230,7 +234,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 18;
 				DEVELOPMENT_TEAM = 9G2H3DAXFZ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Sentinel;
@@ -264,7 +268,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 18;
 				DEVELOPMENT_TEAM = 9G2H3DAXFZ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Sentinel;

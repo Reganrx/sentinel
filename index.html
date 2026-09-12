@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://maps.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: http://127.0.0.1:3001 http://localhost:3001 http://127.0.0.1:3002 http://localhost:3002 https://*.basemaps.cartocdn.com https://*.openstreetmap.org https://tilecache.rainviewer.com https://cdn.weatherapi.com https://*.googleapis.com https://*.gstatic.com; media-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:3001 http://localhost:3001 http://127.0.0.1:3002 http://localhost:3002 http://localhost:5173 ws://localhost:5173 https://*.basemaps.cartocdn.com https://*.openstreetmap.org https://nominatim.openstreetmap.org https://api.rainviewer.com https://tilecache.rainviewer.com https://*.googleapis.com https://*.gstatic.com; frame-src 'self' https://*.google.com https://*.googleapis.com;" />
+    <title>Sentinel</title>
+    <style>
+      html,body,#root{width:100%;height:100%;margin:0;background:#030914}
+      .sentinel-instant-boot{position:fixed;inset:0;display:grid;place-items:center;overflow:hidden;color:#dffbff;font-family:Inter,"Segoe UI",sans-serif;background:radial-gradient(circle at 50% 45%,#0a3552 0%,#071326 36%,#030914 100%)}
+      .sentinel-instant-boot:before{content:"";position:absolute;inset:-20%;opacity:.28;background-image:linear-gradient(rgba(87,214,255,.11) 1px,transparent 1px),linear-gradient(90deg,rgba(87,214,255,.11) 1px,transparent 1px);background-size:46px 46px;mask-image:radial-gradient(circle,#000 0%,transparent 64%);animation:instant-grid 22s linear infinite}
+      .instant-boot-scan{position:absolute;width:min(70vw,640px);height:1px;background:linear-gradient(90deg,transparent,#93f0ff,transparent);box-shadow:0 0 18px #36cfff;animation:instant-scan .72s ease-in-out infinite}
+      .instant-boot-core{position:relative;width:180px;aspect-ratio:1;border:1px solid rgba(100,224,255,.35);border-radius:50%;box-shadow:inset 0 0 45px rgba(50,190,255,.2),0 0 40px rgba(50,190,255,.2);animation:instant-core 1.05s linear infinite}
+      .instant-boot-core:before,.instant-boot-core:after{content:"";position:absolute;border-radius:50%;border:1px dashed rgba(125,230,255,.32)}.instant-boot-core:before{inset:18px}.instant-boot-core:after{inset:48px;box-shadow:0 0 24px rgba(75,212,255,.32)}
+      .instant-boot-dot{position:absolute;top:7px;left:84px;width:11px;height:11px;border-radius:50%;background:#eaffff;box-shadow:0 0 18px 6px #43d8ff}
+      .instant-boot-copy{position:absolute;top:calc(50% + 125px);display:grid;gap:10px;text-align:center}.instant-boot-copy span{color:#70dffa;font-size:11px;font-weight:800;letter-spacing:.24em}.instant-boot-copy strong{color:#fff;font-size:18px;letter-spacing:.16em;text-shadow:0 0 20px rgba(97,224,255,.65)}
+      @keyframes instant-grid{to{transform:translate(46px,46px)}}@keyframes instant-core{to{transform:rotate(360deg)}}@keyframes instant-scan{0%,100%{transform:translateY(-52px);opacity:.2}50%{transform:translateY(52px);opacity:1}}
+      @media(prefers-reduced-motion:reduce){.sentinel-instant-boot *,.sentinel-instant-boot:before{animation:none!important}}
+    </style>
+    <!-- Verified Sentinel feature modules. These live in public/assets so every
+         source build retains the enhanced pages instead of reverting to the
+         original shell. -->
+    <link rel="stylesheet" href="/assets/sentinel-audio-studio.css" />
+    <link rel="stylesheet" href="/assets/sentinel-audio-studio-page.css" />
+    <link rel="stylesheet" href="/assets/codex-chat-live-fixes.css" />
+    <link rel="stylesheet" href="/assets/sentinel-audio-live.css" />
+    <link rel="stylesheet" href="/assets/sentinel-travel-smart.css" />
+    <link rel="stylesheet" href="/assets/sentinel-opensky-setup.css" />
+    <link rel="stylesheet" href="/assets/sentinel-design-attachments.css" />
+    <link rel="stylesheet" href="/assets/sentinel-design-smart.css" />
+    <link rel="stylesheet" href="/assets/sentinel-audio-sessions.css" />
+    <link rel="stylesheet" href="/assets/sentinel-design-editor.css" />
+    <link rel="stylesheet" href="/assets/sentinel-network-centre.css" />
+    <link rel="stylesheet" href="/assets/sentinel-navigation-centre.css" />
+    <link rel="stylesheet" href="/assets/sentinel-navigation-autocomplete.css" />
+    <link rel="stylesheet" href="/assets/sentinel-home-layout-fix.css" />
+    <link rel="stylesheet" href="/assets/sentinel-device-link.css" />
+    <link rel="stylesheet" href="/assets/sentinel-live-talk.css" />
+    <script defer src="/assets/sentinel-audio-studio.js"></script>
+    <script defer src="/assets/sentinel-chat-quick-send.js"></script>
+    <script defer src="/assets/codex-chat-runtime-fixes.js"></script>
+    <script defer src="/assets/sentinel-travel-smart.js"></script>
+    <script defer src="/assets/sentinel-opensky-setup.js"></script>
+    <script defer src="/assets/sentinel-design-attachments.js"></script>
+    <script defer src="/assets/sentinel-design-smart.js"></script>
+    <script defer src="/assets/sentinel-audio-sessions.js"></script>
+    <script defer src="/assets/sentinel-network-centre.js"></script>
+    <script defer src="/assets/sentinel-navigation-centre.js"></script>
+    <script defer src="/assets/sentinel-user-guide.js"></script>
+    <script defer src="/assets/sentinel-device-link.js"></script>
+    <script defer src="/assets/sentinel-weather-radar-enhance.js"></script>
+  </head>
+  <body>
+    <div id="root"><div class="sentinel-instant-boot" aria-label="Sentinel is starting"><div class="instant-boot-scan"></div><div class="instant-boot-core"><i class="instant-boot-dot"></i></div><div class="instant-boot-copy"><span>SENTINEL OS · BOOT PROTOCOL</span><strong>ENERGY SIGNATURE DETECTED</strong></div></div></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

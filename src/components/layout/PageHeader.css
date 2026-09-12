@@ -1,0 +1,43 @@
+.page-header{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:flex-end;
+
+    margin-bottom:36px;
+
+}
+
+.page-header h1{
+
+    margin:0;
+
+    font-size:42px;
+
+    font-weight:700;
+
+    color:white;
+
+    letter-spacing:-1px;
+
+}
+
+.page-header p{
+
+    margin-top:8px;
+
+    color:rgba(255,255,255,.55);
+
+    font-size:17px;
+
+}
+
+.page-actions{
+
+    display:flex;
+
+    gap:12px;
+
+}

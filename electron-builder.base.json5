@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.sentinel.base",
+  "productName": "Sentinel Base",
+  "asar": true,
+  "directories": { "output": "release/base-${version}" },
+  "files": ["dist", "dist-electron"],
+  "extraResources": [
+    { "from": "server", "to": "server", "filter": ["dist/**/*", "node_modules/**/*", "package.json", "!**/node_modules/.cache/**"] },
+    { "from": "build/sentinel-base.json", "to": "sentinel-base.json" },
+    { "from": "build/sentinel-update-public.pem", "to": "sentinel-update-public.pem" }
+  ],
+  "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "artifactName": "${productName}-Windows-${version}-Setup.${ext}" },
+  "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "deleteAppDataOnUninstall": false }
+}

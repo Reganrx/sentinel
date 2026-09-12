@@ -1,0 +1,2 @@
+.chat-workspace{display:flex;flex-direction:column;flex:1;width:100%;min-width:0;height:100%;min-height:0;gap:10px}.workspace-chat{flex:1;position:relative;display:flex;width:100%;min-width:0;min-height:0}
+.chat-workspace .conversation-bar{gap:8px;margin-bottom:4px}.chat-workspace .chat-card{height:56px}

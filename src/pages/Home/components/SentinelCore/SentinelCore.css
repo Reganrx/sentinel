@@ -1,0 +1,90 @@
+.sentinel-core{
+
+    width:100%;
+
+    min-height:0;
+
+    height:100%;
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:center;
+
+    align-items:center;
+
+}
+
+.sentinel-reactor{
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    min-height:0;
+
+    flex:1;
+
+    /* Keep the reactor inside its dedicated visual stage.  The SVG itself
+       contains the complete assembly, including all four clamp modules. */
+    overflow:hidden;
+
+}
+
+.sentinel-reactor .sentinel-reactor-art{
+
+    width:auto !important;
+
+    height:min(59vh, 480px) !important;
+
+    max-width:100%;
+
+}
+
+@media (min-height:821px){
+    .home-view .sentinel-reactor{overflow:visible;min-height:360px}
+    .home-view .sentinel-core{transform:translateY(-4px)}
+}
+
+/* Keep the Home reactor clean and centred.  The outer clamp modules are
+   deliberately omitted from the Home presentation rather than being cropped
+   or allowed to overlap nearby interface elements. */
+.home-view .reactor-clamp{
+    display:none;
+}
+
+.sentinel-text{
+
+    margin-top:clamp(3px, .7vh, 10px);
+
+    text-align:center;
+
+}
+
+.sentinel-text h1{
+
+    margin:0;
+
+    color:white;
+
+    font-size:clamp(30px, 4.4vh, 56px);
+
+    font-weight:700;
+
+    letter-spacing:clamp(5px, .8vw, 10px);
+
+}
+
+.sentinel-state-beacon{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:2px;color:#71dfff;font-size:8px;font-weight:800;letter-spacing:.2em;opacity:.72}.sentinel-state-beacon i{width:32px;height:1px;background:linear-gradient(90deg,transparent,#54d9ff)}.sentinel-state-beacon i:last-child{background:linear-gradient(90deg,#54d9ff,transparent)}.sentinel-state-beacon--offline{color:#81909a}.sentinel-state-beacon--offline i{background:#55616a}
+
+@media (max-height:760px){
+
+    .sentinel-reactor .sentinel-reactor-art{
+        width:auto !important;
+        height:min(45vh, 100%) !important;
+    }
+
+}

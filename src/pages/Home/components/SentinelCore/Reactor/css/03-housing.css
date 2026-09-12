@@ -1,0 +1,390 @@
+/*==================================================
+    SENTINEL REACTOR V3
+    HOUSING SYSTEM
+==================================================*/
+
+/*==================================================
+    ROOT
+==================================================*/
+
+.housing {
+
+    isolation: isolate;
+
+    pointer-events: none;
+
+    overflow: visible;
+
+    filter:
+
+        brightness(
+            calc(
+                var(--reactor-housing-brightness) *
+                var(--reactor-intensity)
+            )
+        )
+
+        saturate(var(--reactor-saturation))
+
+        hue-rotate(var(--reactor-hue));
+
+    transition:
+
+        filter
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        opacity
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard);
+
+}
+
+.housing * {
+
+    vector-effect: non-scaling-stroke;
+
+    transform-origin: center;
+
+    transform-box: fill-box;
+
+}
+
+/*==================================================
+    OUTER SEGMENTS
+==================================================*/
+
+.outer-segment {
+
+    fill: none;
+
+    stroke: var(--reactor-primary);
+
+    stroke-width: var(--reactor-stroke-md);
+
+    opacity: calc(
+        .85 *
+        var(--reactor-intensity)
+    );
+
+    transition:
+
+        opacity
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        transform
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        stroke
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        filter
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard);
+
+}
+
+.outer-segment:hover {
+
+    opacity: 1;
+
+    filter:
+
+        drop-shadow(
+            0 0
+            var(--reactor-glow-md)
+            var(--reactor-primary)
+        );
+
+}
+
+.outer-segment.primary {
+
+    stroke: var(--reactor-primary);
+
+}
+
+.outer-segment.secondary {
+
+    stroke: var(--reactor-secondary);
+
+}
+
+/*==================================================
+    ARMOUR MODULES
+==================================================*/
+
+.armour-module {
+
+    transition:
+
+        opacity
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        transform
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        filter
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard);
+
+}
+
+.armour-plate {
+
+    fill: rgba(255,255,255,.04);
+
+    stroke: rgba(255,255,255,.18);
+
+    stroke-width: var(--reactor-stroke-xs);
+
+}
+
+.armour-highlight {
+
+    stroke: var(--reactor-secondary);
+
+    stroke-width: var(--reactor-stroke-xs);
+
+    opacity: calc(
+        .30 *
+        var(--reactor-intensity)
+    );
+
+}
+
+.armour-shadow {
+
+    opacity: .12;
+
+}
+
+.armour-module:hover {
+
+    transform: scale(1.02);
+
+}
+/*==================================================
+    OUTER DETAILS
+==================================================*/
+
+.outer-detail {
+
+    fill: none;
+
+    stroke: var(--reactor-secondary);
+
+    stroke-width: var(--reactor-stroke-sm);
+
+    opacity: calc(
+        .35 *
+        var(--reactor-intensity)
+    );
+
+    transition:
+
+        opacity
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        stroke
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        filter
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        transform
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard);
+
+}
+
+.outer-detail.primary {
+
+    stroke: var(--reactor-primary);
+
+}
+
+.outer-detail.secondary {
+
+    stroke: var(--reactor-secondary);
+
+}
+
+/*==================================================
+    LOCK ASSEMBLY
+==================================================*/
+
+.lock-assembly {
+
+    transform-origin: center;
+
+    transform-box: fill-box;
+
+}
+
+.lock-ring {
+
+    fill: none;
+
+    stroke: var(--reactor-secondary);
+
+    stroke-width: var(--reactor-stroke-sm);
+
+    opacity: calc(
+        .45 *
+        var(--reactor-intensity)
+    );
+
+    transition:
+
+        opacity
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        stroke
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard);
+
+}
+
+.lock-arm {
+
+    transform-origin: center;
+
+    transform-box: fill-box;
+
+    transition:
+
+        transform
+        var(--reactor-transition-slow)
+        var(--reactor-ease-smooth),
+
+        opacity
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        filter
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard);
+
+}
+
+.lock-pin {
+
+    fill: var(--reactor-primary);
+
+    opacity: calc(
+        .90 *
+        var(--reactor-intensity)
+    );
+
+    filter:
+
+        drop-shadow(
+            0 0
+            var(--reactor-glow-sm)
+            var(--reactor-primary)
+        );
+
+}
+/*==================================================
+    STATUS LIGHTS
+==================================================*/
+
+.status-light {
+
+    fill: var(--reactor-primary);
+
+    opacity: calc(
+        .70 *
+        var(--reactor-intensity)
+    );
+
+    transform-origin: center;
+
+    transform-box: fill-box;
+
+    filter:
+
+        drop-shadow(
+            0 0
+            var(--reactor-glow-md)
+            var(--reactor-primary)
+        );
+
+    animation:
+
+        statusPulse
+        calc(
+            3s *
+            var(--reactor-glow-speed)
+        )
+        ease-in-out
+        infinite;
+
+    transition:
+
+        opacity
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        fill
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        filter
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard);
+
+}
+
+.status-light.warning {
+
+    fill: var(--reactor-warning);
+
+}
+
+.status-light.danger {
+
+    fill: var(--reactor-danger);
+
+}
+
+.status-light.offline {
+
+    opacity: .08;
+
+}
+
+/*==================================================
+    ANIMATIONS
+==================================================*/
+
+@keyframes statusPulse {
+
+    0%,
+    100% {
+
+        opacity: .45;
+
+        transform: scale(1);
+
+    }
+
+    50% {
+
+        opacity: 1;
+
+        transform: scale(1.15);
+
+    }
+
+}

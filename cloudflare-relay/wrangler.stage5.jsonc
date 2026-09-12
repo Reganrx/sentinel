@@ -1,0 +1,40 @@
+{
+  "name": "sentinel-relay-stage5",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-08",
+  "workers_dev": true,
+  "kv_namespaces": [
+    {
+      "binding": "SENTINEL_COMMANDS",
+      "id": "07d49d8fe467453782d865400b21ef4e"
+    },
+    {
+      "binding": "UPDATE_RELEASES",
+      "id": "07d49d8fe467453782d865400b21ef4e"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "SENTINEL_RELEASES",
+      "bucket_name": "sentinel-stage5-releases"
+    },
+    {
+      "binding": "UPDATE_RELEASES_BUCKET",
+      "bucket_name": "sentinel-stage5-releases"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SENTINEL_COORDINATOR",
+        "class_name": "SentinelCoordinator"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "sentinel-coordinator-stage5-v1",
+      "new_sqlite_classes": ["SentinelCoordinator"]
+    }
+  ]
+}

@@ -1,0 +1,240 @@
+.reactor-panel{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:28px;
+
+    padding:28px;
+
+    height:100%;
+
+}
+
+.reactor-header{
+
+    display:flex;
+
+    flex-direction:column;
+
+    align-items:center;
+
+    gap:12px;
+
+}
+
+.reactor-header h2{
+
+    font-size:36px;
+
+    font-weight:700;
+
+}
+
+.reactor-status{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:10px;
+
+    font-weight:600;
+
+    transition:.3s ease;
+
+}
+
+.status-dot{
+
+    width:10px;
+
+    height:10px;
+
+    border-radius:50%;
+
+    transition:.3s ease;
+
+}
+
+/* ---------- IDLE ---------- */
+
+.reactor-status.idle{
+
+    color:#7EF5FF;
+
+}
+
+.reactor-status.idle .status-dot{
+
+    background:#35FF88;
+
+    box-shadow:0 0 18px #35FF88;
+
+}
+
+/* ---------- THINKING ---------- */
+
+.reactor-status.thinking{
+
+    color:#FFD95A;
+
+}
+
+.reactor-status.thinking .status-dot{
+
+    background:#FFD95A;
+
+    box-shadow:0 0 18px #FFD95A;
+
+}
+
+/* ---------- STREAMING ---------- */
+
+.reactor-status.streaming{
+
+    color:#57D8FF;
+
+}
+
+.reactor-status.streaming .status-dot{
+
+    background:var(--sentinel-accent);
+
+    box-shadow:0 0 18px var(--sentinel-accent);
+
+}
+
+/* ---------- LISTENING ---------- */
+
+.reactor-status.listening{
+
+    color:#C983FF;
+
+}
+
+.reactor-status.listening .status-dot{
+
+    background:#B35BFF;
+
+    box-shadow:0 0 18px #B35BFF;
+
+}
+
+/* ---------- OFFLINE ---------- */
+
+.reactor-status.offline{
+
+    color:#888;
+
+}
+
+.reactor-status.offline .status-dot{
+
+    background:#666;
+
+    box-shadow:none;
+
+}
+
+.reactor-core{
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    flex:1;
+
+}
+
+.reactor-metrics{
+
+    display:grid;
+
+    grid-template-columns:1fr 1fr;
+
+    gap:18px;
+
+}
+
+.metric{
+
+    padding:22px;
+
+    border-radius:18px;
+
+    background:rgba(255,255,255,.04);
+
+    text-align:center;
+
+}
+
+.metric-value{
+
+    display:block;
+
+    font-size:34px;
+
+    font-weight:700;
+
+    color:#7EF5FF;
+
+}
+
+.metric-label{
+
+    color:#93A8BA;
+
+}
+
+.activity{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:10px;
+
+}
+
+.activity-top{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    color:#9AB0C0;
+
+}
+
+.activity-bar{
+
+    height:10px;
+
+    border-radius:999px;
+
+    background:rgba(255,255,255,.06);
+
+    overflow:hidden;
+
+}
+
+.activity-fill{
+
+    height:100%;
+
+    border-radius:999px;
+
+    background:linear-gradient(
+        90deg,
+        #35FF88,
+        var(--sentinel-accent)
+    );
+
+    box-shadow:0 0 18px rgba(var(--sentinel-accent-rgb),.45);
+
+    transition:width .35s ease;
+}

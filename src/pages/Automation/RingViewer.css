@@ -1,0 +1,341 @@
+.ring-camera-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+  margin-top: 22px;
+}
+.ring-camera-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(107, 220, 248, 0.17);
+  border-radius: 16px;
+  background: rgba(1, 10, 20, 0.37);
+}
+.ring-camera-card strong {
+  color: #f5fbff;
+  font-size: 16px;
+}
+.ring-camera-card > span {
+  color: #91aabd;
+  font-size: 12px;
+}
+.ring-preview {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid rgba(104, 221, 249, 0.18);
+  border-radius: 11px;
+  background: #050d18;
+  cursor: pointer;
+}
+.ring-preview:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.ring-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ring-preview-unavailable {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 5px;
+  color: #69def8;
+  background: linear-gradient(145deg, #071524, #040c16);
+}
+.ring-preview-unavailable strong {
+  color: #dff8ff;
+  font-size: 13px;
+}
+.ring-preview-unavailable small {
+  color: #87a4b6;
+  font-size: 11px;
+}
+.ring-preview span {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px;
+  border: 1px solid rgba(170, 244, 255, 0.22);
+  border-radius: 8px;
+  color: #e5faff;
+  font-size: 11px;
+  background: rgba(3, 13, 24, 0.78);
+  backdrop-filter: blur(8px);
+}
+.ring-viewer-backdrop {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(0, 7, 15, 0.82);
+  backdrop-filter: blur(10px);
+}
+.ring-viewer {
+  width: min(1050px, 100%);
+  overflow: hidden;
+  border: 1px solid rgba(93, 225, 255, 0.32);
+  border-radius: 19px;
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.5),
+    0 0 55px rgba(60, 215, 255, 0.12);
+  background: #071323;
+}
+.ring-viewer header,
+.ring-viewer footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 19px;
+}
+.ring-viewer header span {
+  color: #67dff9;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+.ring-viewer h2 {
+  margin: 4px 0 0;
+  color: #f5fcff;
+  font-size: 20px;
+}
+.ring-viewer header > button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #d9eff7;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+.ring-viewer > img,
+.ring-viewer > video {
+  display: block;
+  width: 100%;
+  max-height: min(68vh, 710px);
+  object-fit: contain;
+  background: #02070d;
+}
+.ring-viewer-loading {
+  display: grid;
+  min-height: min(68vh, 710px);
+  place-content: center;
+  gap: 12px;
+  color: #a9c4d2;
+  text-align: center;
+}
+.ring-viewer-loading .is-spinning {
+  margin: auto;
+  color: #68def9;
+}
+.ring-viewer footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ring-viewer footer span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #9ab3c3;
+  font-size: 12px;
+}
+.ring-viewer footer i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #52e29a;
+  box-shadow: 0 0 8px #52e29a;
+}
+.ring-viewer footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 11px;
+  border: 1px solid rgba(106, 220, 249, 0.2);
+  border-radius: 9px;
+  color: #c7f2fb;
+  background: rgba(80, 213, 245, 0.08);
+  cursor: pointer;
+}
+.ring-viewer footer button:last-child {
+  margin-left: -8px;
+  color: #aabcc8;
+  background: transparent;
+}
+.ring-control-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+.ring-control-grid article {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(107, 220, 248, 0.17);
+  border-radius: 15px;
+  background: rgba(1, 10, 20, 0.37);
+}
+.ring-control-grid article > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+.ring-control-grid strong {
+  color: #f5fbff;
+}
+.ring-control-grid span {
+  color: #91aabd;
+  font-size: 12px;
+}
+.ring-camera-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.ring-camera-controls button {
+  padding: 8px 10px;
+  border: 1px solid rgba(89, 222, 247, 0.2);
+  border-radius: 8px;
+  color: #bcecf5;
+  font-size: 12px;
+  background: rgba(38, 166, 198, 0.09);
+  cursor: pointer;
+}
+.ring-camera-controls button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+.ring-camera-controls .ring-siren-button {
+  border-color: rgba(255, 106, 106, 0.45);
+  color: #ffd1d1;
+  background: rgba(210, 50, 50, 0.16);
+}
+.ring-talkback-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+.ring-talkback-list button,
+.ring-talkback-active {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid rgba(92, 225, 255, 0.2);
+  border-radius: 13px;
+  color: #c8f5ff;
+  background: rgba(18, 117, 148, 0.11);
+  text-align: left;
+  cursor: pointer;
+}
+.ring-talkback-list button > span,
+.ring-talkback-active > div {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+}
+.ring-talkback-list strong,
+.ring-talkback-active strong {
+  color: #f4fcff;
+}
+.ring-talkback-list small,
+.ring-talkback-active span {
+  color: #91aabd;
+  font-size: 12px;
+}
+.ring-talkback-list em {
+  color: #67dff9;
+  font-size: 12px;
+  font-style: normal;
+}
+.ring-talkback-active {
+  margin-top: 18px;
+  cursor: default;
+}
+.ring-talkback-active .ring-siren-button {
+  width: auto;
+  border: 1px solid rgba(255, 106, 106, 0.45);
+  border-radius: 8px;
+  color: #ffd1d1;
+  background: rgba(210, 50, 50, 0.16);
+  cursor: pointer;
+  padding: 8px 10px;
+}
+.ring-talkback-status {
+  margin: 14px 0 0;
+  color: #f3c79a;
+  font-size: 13px;
+}
+.ring-live-video {
+  position: relative;
+  overflow: hidden;
+  margin-top: 16px;
+  border: 1px solid rgba(92, 225, 255, 0.25);
+  border-radius: 14px;
+  background: #02070d;
+  aspect-ratio: 16/9;
+}
+.ring-live-video video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.ring-live-video span {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  color: #e6fbff;
+  background: rgba(3, 13, 24, 0.78);
+  font-size: 11px;
+}
+.ring-live-video i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #52e29a;
+  box-shadow: 0 0 8px #52e29a;
+}
+@media (max-width: 980px) {
+  .ring-camera-grid,
+  .ring-control-grid,
+  .ring-talkback-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 650px) {
+  .ring-camera-grid,
+  .ring-control-grid,
+  .ring-talkback-list {
+    grid-template-columns: 1fr;
+  }
+  .ring-viewer-backdrop {
+    padding: 14px;
+  }
+  .ring-viewer footer {
+    flex-wrap: wrap;
+  }
+  .ring-viewer footer button:last-child {
+    margin-left: 0;
+  }
+}

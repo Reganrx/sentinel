@@ -1,0 +1,315 @@
+/*==================================================
+    SENTINEL REACTOR V3
+    REACTOR STATES
+==================================================*/
+
+/*==================================================
+    DEFAULT
+==================================================*/
+
+.reactor {
+
+    --reactor-intensity: 1;
+
+    --reactor-glow-opacity: 1;
+    --reactor-glass-opacity: 1;
+    --reactor-energy-opacity: 1;
+    --reactor-plasma-opacity: 1;
+
+    --reactor-glow-brightness: 1;
+    --reactor-glass-brightness: 1;
+    --reactor-energy-brightness: 1;
+    --reactor-plasma-brightness: 1;
+    --reactor-housing-brightness: 1;
+
+    --reactor-rotation-speed: 1;
+    --reactor-flow-speed: 1;
+    --reactor-pulse-speed: 1;
+    --reactor-glow-speed: 1;
+    --reactor-flicker-speed: 1;
+    --reactor-scan-speed: 1;
+
+    transition:
+
+        filter
+        var(--reactor-transition-slow)
+        var(--reactor-ease-standard),
+
+        opacity
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard),
+
+        transform
+        var(--reactor-transition-normal)
+        var(--reactor-ease-standard);
+
+}
+
+/*==================================================
+    OFFLINE
+==================================================*/
+
+.reactor-offline {
+
+    --reactor-intensity: .08;
+
+    --reactor-glow-opacity: .05;
+    --reactor-energy-opacity: .03;
+    --reactor-plasma-opacity: 0;
+
+    --reactor-glow-brightness: .25;
+    --reactor-energy-brightness: .20;
+    --reactor-plasma-brightness: 0;
+
+    --reactor-rotation-speed: 0;
+    --reactor-flow-speed: 0;
+    --reactor-pulse-speed: 0;
+    --reactor-glow-speed: 0;
+    --reactor-flicker-speed: 0;
+    --reactor-scan-speed: 0;
+
+    filter:
+
+        grayscale(.95)
+        brightness(.45);
+
+}
+/*==================================================
+    INITIALISING
+==================================================*/
+
+.reactor-initialising {
+
+    --reactor-intensity: .65;
+
+    --reactor-glow-opacity: .60;
+    --reactor-energy-opacity: .55;
+    --reactor-plasma-opacity: .40;
+
+    --reactor-glow-brightness: .85;
+    --reactor-energy-brightness: .90;
+    --reactor-plasma-brightness: .75;
+
+    --reactor-rotation-speed: .40;
+    --reactor-flow-speed: .45;
+    --reactor-pulse-speed: .60;
+    --reactor-glow-speed: .70;
+    --reactor-flicker-speed: .55;
+    --reactor-scan-speed: .80;
+
+}
+
+/*==================================================
+    IDLE
+==================================================*/
+
+.reactor-idle {
+
+    --reactor-intensity: .90;
+
+    --reactor-glow-opacity: .85;
+    --reactor-energy-opacity: .85;
+    --reactor-plasma-opacity: .80;
+
+    --reactor-glow-brightness: .95;
+    --reactor-energy-brightness: .95;
+    --reactor-plasma-brightness: .90;
+
+    --reactor-rotation-speed: .70;
+    --reactor-flow-speed: .75;
+    --reactor-pulse-speed: .80;
+    --reactor-glow-speed: .90;
+    --reactor-flicker-speed: .80;
+    --reactor-scan-speed: .90;
+
+}
+
+/*==================================================
+    LISTENING
+==================================================*/
+
+.reactor-listening {
+
+    --reactor-intensity: 1;
+
+    --reactor-glow-opacity: 1;
+    --reactor-energy-opacity: 1;
+    --reactor-plasma-opacity: .95;
+
+    --reactor-glow-brightness: 1.05;
+    --reactor-energy-brightness: 1.05;
+    --reactor-plasma-brightness: 1;
+
+    --reactor-rotation-speed: 1;
+    --reactor-flow-speed: 1;
+    --reactor-pulse-speed: 1.1;
+    --reactor-glow-speed: 1.1;
+    --reactor-flicker-speed: 1;
+    --reactor-scan-speed: 1.15;
+
+}
+/*==================================================
+    THINKING
+==================================================*/
+
+.reactor-thinking {
+
+    --reactor-intensity: 1.10;
+
+    --reactor-glow-opacity: 1.15;
+    --reactor-energy-opacity: 1.15;
+    --reactor-plasma-opacity: 1.05;
+
+    --reactor-glow-brightness: 1.20;
+    --reactor-energy-brightness: 1.20;
+    --reactor-plasma-brightness: 1.10;
+
+    --reactor-rotation-speed: 1.35;
+    --reactor-flow-speed: 1.40;
+    --reactor-pulse-speed: 1.30;
+    --reactor-glow-speed: 1.25;
+    --reactor-flicker-speed: 1.35;
+    --reactor-scan-speed: 1.40;
+
+}
+
+/*==================================================
+    STREAMING
+==================================================*/
+
+.reactor-streaming {
+
+    --reactor-intensity: 1.20;
+
+    --reactor-glow-opacity: 1.20;
+    --reactor-energy-opacity: 1.30;
+    --reactor-plasma-opacity: 1.20;
+
+    --reactor-glow-brightness: 1.30;
+    --reactor-energy-brightness: 1.35;
+    --reactor-plasma-brightness: 1.20;
+
+    --reactor-rotation-speed: 1.60;
+    --reactor-flow-speed: 1.75;
+    --reactor-pulse-speed: 1.40;
+    --reactor-glow-speed: 1.35;
+    --reactor-flicker-speed: 1.50;
+    --reactor-scan-speed: 1.50;
+
+}
+
+/*==================================================
+    SPEAKING
+==================================================*/
+
+.reactor-speaking {
+
+    --reactor-intensity: 1.15;
+
+    --reactor-glow-opacity: 1.15;
+    --reactor-energy-opacity: 1.10;
+    --reactor-plasma-opacity: 1.15;
+
+    --reactor-glow-brightness: 1.25;
+    --reactor-energy-brightness: 1.15;
+    --reactor-plasma-brightness: 1.25;
+
+    --reactor-rotation-speed: 1.15;
+    --reactor-flow-speed: 1.10;
+    --reactor-pulse-speed: 1.55;
+    --reactor-glow-speed: 1.55;
+    --reactor-flicker-speed: 1.20;
+    --reactor-scan-speed: 1.10;
+
+}
+/*==================================================
+    WARNING
+==================================================*/
+
+.reactor-warning {
+
+    --reactor-intensity: 1.15;
+
+    --reactor-primary: #ffd64d;
+    --reactor-secondary: #ff9d00;
+
+    --reactor-glow-opacity: 1.30;
+    --reactor-energy-opacity: 1.25;
+    --reactor-plasma-opacity: 1.10;
+
+    --reactor-glow-brightness: 1.35;
+    --reactor-energy-brightness: 1.30;
+    --reactor-plasma-brightness: 1.15;
+
+    --reactor-rotation-speed: 1.40;
+    --reactor-flow-speed: 1.25;
+    --reactor-pulse-speed: 1.80;
+    --reactor-glow-speed: 1.90;
+    --reactor-flicker-speed: 1.60;
+    --reactor-scan-speed: 1.30;
+
+}
+
+/*==================================================
+    CRITICAL
+==================================================*/
+
+.reactor-critical {
+
+    --reactor-intensity: 1.30;
+
+    --reactor-primary: #ff5555;
+    --reactor-secondary: #ff2d2d;
+
+    --reactor-glow-opacity: 1.55;
+    --reactor-energy-opacity: 1.40;
+    --reactor-plasma-opacity: 1.35;
+
+    --reactor-glow-brightness: 1.60;
+    --reactor-energy-brightness: 1.45;
+    --reactor-plasma-brightness: 1.40;
+
+    --reactor-rotation-speed: 2.00;
+    --reactor-flow-speed: 1.80;
+    --reactor-pulse-speed: 2.20;
+    --reactor-glow-speed: 2.10;
+    --reactor-flicker-speed: 2.50;
+    --reactor-scan-speed: 1.80;
+
+    animation:
+
+        reactorCriticalFlash
+        .9s
+        ease-in-out
+        infinite;
+
+}
+
+/*==================================================
+    CRITICAL ANIMATION
+==================================================*/
+
+@keyframes reactorCriticalFlash {
+
+    0%,
+    100% {
+
+        filter:
+
+            brightness(1)
+
+            saturate(1);
+
+    }
+
+    50% {
+
+        filter:
+
+            brightness(1.25)
+
+            saturate(1.4);
+
+    }
+
+}

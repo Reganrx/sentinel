@@ -1,0 +1,26 @@
+/* Keep desktop context telemetry clear of the reactor artwork. */
+@media (min-width: 1100px) {
+  .home-view {
+    position: relative;
+  }
+
+  .home-view .home-context-strip {
+    position: absolute;
+    top: 12px;
+    right: clamp(18px, 3vw, 46px);
+    transform: none;
+    z-index: 6;
+  }
+
+  .home-view .home-welcome {
+    padding-right: min(58vw, 920px);
+    box-sizing: border-box;
+  }
+}
+
+@media (min-width: 1100px) and (max-width: 1500px) {
+  .home-view .home-context-strip span {
+    padding: 5px 8px;
+    font-size: 10px;
+  }
+}

@@ -60,6 +60,17 @@ extension SentinelWeather {
     static func symbol(for code: Int) -> String {
         switch code { case 0: "sun.max.fill"; case 1...3: "cloud.sun.fill"; case 45, 48: "cloud.fog.fill"; case 51...67, 80...82: "cloud.rain.fill"; case 71...77, 85, 86: "cloud.snow.fill"; case 95...99: "cloud.bolt.rain.fill"; default: "cloud.fill" }
     }
+
+    static func conditionCode(for condition: String) -> Int {
+        let value = condition.lowercased()
+        if value.contains("thunder") { return 95 }
+        if value.contains("snow") || value.contains("sleet") { return 71 }
+        if value.contains("rain") || value.contains("shower") { return 61 }
+        if value.contains("drizzle") { return 51 }
+        if value.contains("fog") || value.contains("mist") { return 45 }
+        if value.contains("cloud") || value.contains("overcast") { return 2 }
+        return 0
+    }
 }
 
 struct SentinelWeatherAPIResponse: Decodable {
@@ -71,8 +82,8 @@ struct SentinelWeatherAPIResponse: Decodable {
     struct Day: Decodable { let maxtempC: Double; let mintempC: Double; let avgtempC: Double; let dailyChanceOfRain: Int; let condition: Condition
         enum CodingKeys: String, CodingKey { case maxtempC = "maxtemp_c", mintempC = "mintemp_c", avgtempC = "avgtemp_c", dailyChanceOfRain = "daily_chance_of_rain", condition }
     }
-    struct Hour: Decodable { let time: String; let tempC: Double; let feelslikeC: Double; let chanceOfRain: Int; let condition: Condition
-        enum CodingKeys: String, CodingKey { case time, tempC = "temp_c", feelslikeC = "feelslike_c", chanceOfRain = "chance_of_rain", condition }
+    struct Hour: Decodable { let time: String; let tempC: Double; let feelslikeC: Double; let chanceOfRain: Int; let precipMm: Double; let willItRain: Int; let condition: Condition
+        enum CodingKeys: String, CodingKey { case time, tempC = "temp_c", feelslikeC = "feelslike_c", chanceOfRain = "chance_of_rain", precipMm = "precip_mm", willItRain = "will_it_rain", condition }
     }
     struct ForecastDay: Decodable { let date: String; let day: Day; let hour: [Hour] }
     struct Forecast: Decodable { let forecastday: [ForecastDay] }
@@ -87,7 +98,7 @@ struct SentinelRadarMetadata: Codable {
     let attribution: String
     let generatedAt: String
     let tileSize: Int
-    let colorScheme: Int
+    let colorScheme: Int?
     let smooth: Bool
     let snow: Bool
     let frames: [Frame]
@@ -97,18 +108,8 @@ struct SentinelRadarMetadata: Codable {
 extension SentinelWeather {
     init(weatherAPI response: SentinelWeatherAPIResponse) {
         let hours = response.forecast.forecastday.flatMap(\.hour)
-        current = .init(temperature2m: response.current.tempC, apparentTemperature: response.current.feelslikeC, weatherCode: Self.weatherCode(for: response.current.condition.text), windSpeed10m: response.current.windKph)
+        current = .init(temperature2m: response.current.tempC, apparentTemperature: response.current.feelslikeC, weatherCode: Self.conditionCode(for: response.current.condition.text), windSpeed10m: response.current.windKph)
         hourly = .init(time: hours.map(\.time), temperature2m: hours.map(\.tempC), precipitationProbability: hours.map(\.chanceOfRain))
-        daily = .init(time: response.forecast.forecastday.map(\.date), weatherCode: response.forecast.forecastday.map { Self.weatherCode(for: $0.day.condition.text) }, temperature2mMax: response.forecast.forecastday.map(\.day.maxtempC), temperature2mMin: response.forecast.forecastday.map(\.day.mintempC))
-    }
-
-    private static func weatherCode(for condition: String) -> Int {
-        let value = condition.lowercased()
-        if value.contains("thunder") { return 95 }
-        if value.contains("snow") || value.contains("sleet") { return 71 }
-        if value.contains("rain") || value.contains("shower") { return 61 }
-        if value.contains("fog") || value.contains("mist") { return 45 }
-        if value.contains("cloud") || value.contains("overcast") { return 2 }
-        return 0
+        daily = .init(time: response.forecast.forecastday.map(\.date), weatherCode: response.forecast.forecastday.map { Self.conditionCode(for: $0.day.condition.text) }, temperature2mMax: response.forecast.forecastday.map(\.day.maxtempC), temperature2mMin: response.forecast.forecastday.map(\.day.mintempC))
     }
 }

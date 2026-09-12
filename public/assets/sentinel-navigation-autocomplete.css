@@ -1,0 +1,9 @@
+.nav-autocomplete{display:none;position:absolute;z-index:10000;top:calc(100% + 7px);left:0;right:0;max-height:390px;overflow:auto;padding:8px;border:1px solid rgba(var(--sentinel-accent-rgb),.36);border-radius:15px;background:#061525;box-shadow:0 22px 55px rgba(0,0,0,.48)}
+.nav-autocomplete.open{display:grid}
+.nav-autocomplete button{display:grid!important;grid-template-columns:1fr auto;gap:4px 12px;width:100%;padding:12px 14px!important;border:0!important;border-bottom:1px solid rgba(var(--sentinel-accent-rgb),.1)!important;border-radius:9px!important;background:transparent!important;text-align:left;color:#e8f8ff!important}
+.nav-autocomplete button:hover{background:rgba(var(--sentinel-accent-rgb),.1)!important}
+.nav-autocomplete strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-autocomplete span{grid-column:1/-1;color:#94abbd;font-size:12px}
+.nav-autocomplete small{grid-column:2;grid-row:1;color:var(--sentinel-accent);font-size:10px;text-transform:uppercase}
+.nav-autocomplete-loading{display:block;padding:16px;color:#97adbd;text-align:center}
+.navigation-search,.navigation-panel{overflow:visible!important}

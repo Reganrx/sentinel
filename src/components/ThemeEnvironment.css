@@ -1,0 +1,3 @@
+.sentinel-environment{background:radial-gradient(ellipse at 55% 30%,var(--sentinel-bg-highlight) 0%,var(--sentinel-bg-mid) 35%,var(--sentinel-bg-base) 70%,var(--sentinel-bg-deep) 100%)!important}
+.sentinel-environment.view-navigation{background:radial-gradient(ellipse at 58% 25%,var(--sentinel-bg-highlight) 0%,var(--sentinel-bg-mid) 44%,var(--sentinel-bg-deep) 100%)!important}
+.sentinel-environment.view-automation{background:radial-gradient(ellipse at 50% 15%,var(--sentinel-bg-highlight) 0%,var(--sentinel-bg-mid) 48%,var(--sentinel-bg-deep) 100%)!important}

@@ -1,0 +1,133 @@
+*,
+*::before,
+*::after{
+
+    box-sizing:border-box;
+
+}
+
+html,
+body,
+#root{
+
+    width:100%;
+
+    height:100%;
+
+    margin:0;
+
+    padding:0;
+
+}
+
+body{
+
+    overflow:hidden;
+
+    background:var(--bg);
+
+    color:var(--text);
+
+    font-family:
+
+        Inter,
+
+        "Segoe UI",
+
+        Roboto,
+
+        Helvetica,
+
+        Arial,
+
+        sans-serif;
+
+    -webkit-font-smoothing:antialiased;
+
+    -moz-osx-font-smoothing:grayscale;
+
+}
+
+button{
+
+    font:inherit;
+
+}
+
+input,
+textarea,
+button{
+
+    outline:none;
+
+}
+
+textarea{
+
+    font:inherit;
+
+}
+
+a{
+
+    color:inherit;
+
+    text-decoration:none;
+
+}
+
+img{
+
+    display:block;
+
+    max-width:100%;
+
+}
+
+::-webkit-scrollbar{
+
+    width:10px;
+
+    height:10px;
+
+}
+
+::-webkit-scrollbar-track{
+
+    background:transparent;
+
+}
+
+::-webkit-scrollbar-thumb{
+
+    background:rgba(255,255,255,.08);
+
+    border-radius:999px;
+
+}
+
+::-webkit-scrollbar-thumb:hover{
+
+    background:rgba(var(--sentinel-accent-rgb),.25);
+
+}
+
+::selection{
+
+    background:rgba(var(--sentinel-accent-rgb),.25);
+
+    color:white;
+
+}
+
+.sentinel-app-shell{
+
+    position:relative;
+
+    width:100%;
+
+    height:100%;
+
+    isolation:isolate;
+
+}

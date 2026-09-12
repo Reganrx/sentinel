@@ -1,0 +1,65 @@
+{
+  "name": "jarvis-os",
+  "author": "Sentinel Personal",
+  "private": true,
+  "version": "1.2.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && npm --prefix server run build && vite build && node tests/run-navigation.cjs && electron-builder",
+    "build:personal": "npm run build",
+    "build:base": "set VITE_SENTINEL_EDITION=base&& set VITE_SENTINEL_API_URL=http://localhost:3002&& tsc && npm --prefix server run build && vite build && electron-builder --config electron-builder.base.json5",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "test": "npm --prefix server run build && node --test tests/*.test.mjs",
+    "test:navigation": "vite build && node tests/run-navigation.cjs",
+    "check": "npm run lint && tsc --noEmit && npm --prefix server run typecheck && npm test",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@openai/codex": "^0.149.1",
+    "adm-zip": "^0.6.0",
+    "framer-motion": "^12.42.2",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^1.26.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^16.1.1",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/adm-zip": "^0.5.8",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/leaflet": "^1.9.22",
+    "@types/node": "^26.1.1",
+    "@types/react": "^18.2.64",
+    "@types/react-dom": "^18.2.21",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "@typescript-eslint/eslint-plugin": "^7.1.1",
+    "@typescript-eslint/parser": "^7.1.1",
+    "@vitejs/plugin-react": "^5.0.4",
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.7",
+    "vite-plugin-electron": "^0.28.6",
+    "vite-plugin-electron-renderer": "^0.14.5"
+  },
+  "main": "dist-electron/main.js",
+  "description": "Sentinel Personal desktop command centre.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Reganrx/sentinel.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Reganrx/sentinel/issues"
+  },
+  "homepage": "https://github.com/Reganrx/sentinel#readme"
+}

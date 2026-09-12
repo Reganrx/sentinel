@@ -1,0 +1,37 @@
+{
+  "name": "sentinel-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-08",
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true
+    }
+  },
+  "kv_namespaces": [
+    {
+      "binding": "SENTINEL_COMMANDS",
+      "id": "afc88b1223474262ab5b1c2cd5d622fe"
+    },
+    {
+      "binding": "UPDATE_RELEASES",
+      "id": "9a24f7c5ac8e4eec92120bef8e0965fc"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "SENTINEL_RELEASES",
+      "bucket_name": "sentinel-releases"
+    },
+    {
+      "binding": "UPDATE_RELEASES_BUCKET",
+      "bucket_name": "sentinel-releases"
+    }
+  ],
+  "durable_objects": { "bindings": [{ "name": "SENTINEL_COORDINATOR", "class_name": "SentinelCoordinator" }] },
+  "migrations": [{ "tag": "sentinel-coordinator-v1", "new_sqlite_classes": ["SentinelCoordinator"] }]
+}

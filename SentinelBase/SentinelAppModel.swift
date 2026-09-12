@@ -52,6 +52,9 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     @Published var showUnreadOnly = false
 
     @Published var mapSearch = ""
+    @Published var travelDestinationSearch = ""
+    @Published private(set) var travelDestinationResults: [SentinelPlaceResult] = []
+    @Published private(set) var travelDestinationStatus = "Choose a saved trip or enter a destination."
     @Published var mapStatus = "Search for a destination to open it in Apple Maps."
     @Published private(set) var placeResults: [SentinelPlaceResult] = []
     @Published var journeyDestination = ""
@@ -73,6 +76,9 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     @Published var flightDate = Date()
     @Published var flightTerminal = ""
     @Published private(set) var flights: [SentinelFlight] = []
+    @Published private(set) var personalTrips: [PersonalTravelTrip] = []
+    @Published private(set) var personalFlights: [PersonalTravelFlight] = []
+    @Published private(set) var personalTravelStatus = "Pull saved trips and flights from Personal."
     @Published private(set) var flightStatus: SentinelAviationFlight?
     @Published private(set) var flightStatusMessage = "Search a flight number for live status."
     @Published private(set) var isLoadingFlightStatus = false
@@ -113,6 +119,33 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     @Published private(set) var crossDeviceTestStatus = "Not tested yet"
     @Published private(set) var desktopActionStatus = "No desktop request sent."
     @Published private(set) var desktopActionCommandID: String?
+    @Published var conciergeRequest = ""
+    @Published var conciergePeople = 2
+    @Published var conciergeAllergies = ""
+    @Published var conciergeBudget = 35.0
+    @Published var conciergePostcode = ""
+    @Published private(set) var conciergePlan: ConciergePlan?
+    @Published private(set) var conciergeStatus = "Pair Sentinel Personal to plan an order securely."
+    @Published private(set) var isPlanningConcierge = false
+    @Published private(set) var personalLights: [PersonalHueLight] = []
+    @Published private(set) var homeControlStatus = "Connect to Sentinel Personal on the same Wi-Fi to load lights."
+    @Published private(set) var changingLightID: String?
+    @Published private(set) var mediaCommandStatus = "Pair Sentinel Personal on the same Wi-Fi to control Windows playback."
+    @Published private(set) var isSendingMediaCommand = false
+    @Published private(set) var scannedDevices: [PersonalScannedDevice] = []
+    @Published private(set) var scannerNotes: [String] = []
+    @Published private(set) var scannerNewIDs: Set<String> = []
+    @Published private(set) var trustedDeviceIDs: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "sentinelMobileTrustedDevices") ?? [])
+    @Published private(set) var scannerStatus = "Unlock Developer Mode in Personal, then scan while this iPhone is on the same Wi-Fi."
+    @Published private(set) var isScanningDevices = false
+    @Published private(set) var personalIntegrations: [PersonalIntegration] = []
+    @Published private(set) var personalGoveeDevices: [PersonalGoveeDevice] = []
+    @Published private(set) var personalRingDevices: [PersonalRingDevice] = []
+    @Published private(set) var personalRingEvents: [PersonalRingEvent] = []
+    @Published private(set) var personalCameraSnapshots: [String: Data] = [:]
+    @Published private(set) var missionDataStatus = "Connect to Sentinel Personal to load integrations and devices."
+    @Published private(set) var goveeCommandStatus = "Choose an explicit device action."
+    @Published private(set) var changingGoveeID: String?
 
     private let cloud = SentinelCloud()
     private var reconnectTask: Task<Void, Never>?
@@ -174,6 +207,11 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
                 true,
                 forKey: "sentinelSystemPageMigration1"
             )
+        }
+        if !UserDefaults.standard.bool(forKey: "sentinelMissionControlMigration1") {
+            initialVisiblePageNames.insert(SentinelPage.missionControl.rawValue)
+            UserDefaults.standard.set(Array(initialVisiblePageNames), forKey: "sentinelVisiblePages")
+            UserDefaults.standard.set(true, forKey: "sentinelMissionControlMigration1")
         }
 
         visiblePageNames = initialVisiblePageNames
@@ -859,6 +897,27 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
         guard (!prompt.isEmpty || !chatAttachments.isEmpty), !isSendingChat else {
             return
         }
+        if !UserDefaults.standard.bool(forKey: "sentinelConciergeMigration1") {
+            initialVisiblePageNames.insert(SentinelPage.concierge.rawValue)
+            UserDefaults.standard.set(Array(initialVisiblePageNames), forKey: "sentinelVisiblePages")
+            UserDefaults.standard.set(true, forKey: "sentinelConciergeMigration1")
+        }
+        if !UserDefaults.standard.bool(forKey: "sentinelMediaMigration1") {
+            initialVisiblePageNames.insert(SentinelPage.media.rawValue)
+            UserDefaults.standard.set(Array(initialVisiblePageNames), forKey: "sentinelVisiblePages")
+            UserDefaults.standard.set(true, forKey: "sentinelMediaMigration1")
+        }
+        if !UserDefaults.standard.bool(forKey: "sentinelScannerMigration1") {
+            initialVisiblePageNames.insert(SentinelPage.scanner.rawValue)
+            UserDefaults.standard.set(Array(initialVisiblePageNames), forKey: "sentinelVisiblePages")
+            UserDefaults.standard.set(true, forKey: "sentinelScannerMigration1")
+        }
+        if chatError != nil, chatMessages.last?.role == .user,
+           chatMessages.last?.text == prompt, chatAttachments.isEmpty {
+            await retryAssistantPrompt()
+            chatDraft = ""
+            return
+        }
         let messageText = prompt.isEmpty ? "Please analyse the attached file." : prompt
         let attachments = chatAttachments
 
@@ -875,6 +934,12 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
 
         chatDraft = ""
         persistChatConversation()
+        if let instantReply = localChatCapabilityReply(for: messageText), attachments.isEmpty {
+            chatMessages.append(SentinelChatMessage(role: .assistant, text: instantReply))
+            if spokenResponses { speakAssistantResponse(instantReply) }
+            persistChatConversation()
+            return
+        }
         isSendingChat = true
         defer { isSendingChat = false }
 
@@ -1087,6 +1152,170 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
         }
     }
 
+    func refreshPersonalTravel() async {
+        guard companionPaired else { personalTravelStatus = "Pair with Sentinel Personal first."; return }
+        personalTravelStatus = "Syncing saved travel…"
+        do {
+            let data = try await cloud.listSharedItems()
+            let listing = try JSONDecoder().decode(PersonalTravelListing.self, from: data)
+            guard let snapshot = listing.items.filter({ $0.text?.hasPrefix("SENTINEL_TRAVEL_V1:") == true && $0.sourceDeviceId == "desktop" }).sorted(by: { $0.createdAt > $1.createdAt }).first,
+                  let payload = snapshot.text?.dropFirst("SENTINEL_TRAVEL_V1:".count).data(using: .utf8) else {
+                personalTravelStatus = "No Personal travel snapshot yet. Open Travel on your desktop while paired."
+                return
+            }
+            let travel = try JSONDecoder().decode(PersonalTravelSnapshot.self, from: payload)
+            personalTrips = travel.trips
+            personalFlights = travel.flights
+            personalTravelStatus = "\(travel.trips.count) trips and \(travel.flights.count) flights synced from Personal."
+        } catch { personalTravelStatus = "Travel sync unavailable: \(error.localizedDescription)" }
+    }
+
+    func planConciergeOrder() async {
+        let request = conciergeRequest.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !request.isEmpty, !isPlanningConcierge else { return }
+        isPlanningConcierge = true
+        conciergePlan = nil
+        conciergeStatus = "Preparing a basket for review…"
+        defer { isPlanningConcierge = false }
+        do {
+            conciergePlan = try await cloud.planConciergeOrder(ConciergePlanRequest(
+                request: request,
+                people: max(1, min(12, conciergePeople)),
+                allergies: conciergeAllergies,
+                budget: max(0, conciergeBudget)
+            ))
+            conciergeStatus = "Plan ready. Review allergies and prices with the provider before ordering."
+        } catch {
+            conciergeStatus = "Sentinel Personal must be running on the same Wi-Fi with a working Chat provider. \(error.localizedDescription)"
+        }
+    }
+
+    func refreshPersonalLights() async {
+        homeControlStatus = "Loading verified devices from Sentinel Personal…"
+        do {
+            personalLights = try await cloud.personalLights()
+            homeControlStatus = personalLights.isEmpty ? "No Hue lights are connected in Personal." : "\(personalLights.count) light\(personalLights.count == 1 ? "" : "s") connected."
+        } catch {
+            homeControlStatus = "Personal Home Command is unavailable on this Wi-Fi. \(error.localizedDescription)"
+        }
+    }
+
+    func togglePersonalLight(_ light: PersonalHueLight) async {
+        guard changingLightID == nil else { return }
+        changingLightID = light.id
+        defer { changingLightID = nil }
+        do {
+            try await cloud.setPersonalLight(light, on: !light.on)
+            personalLights = try await cloud.personalLights()
+            homeControlStatus = "\(light.name) \(light.on ? "turned off" : "turned on") and confirmed by Personal."
+        } catch {
+            homeControlStatus = "Could not change \(light.name): \(error.localizedDescription)"
+        }
+    }
+
+    func setPersonalLightBrightness(_ light: PersonalHueLight, brightness: Int) async {
+        guard changingLightID == nil else { return }
+        changingLightID = light.id
+        defer { changingLightID = nil }
+        do {
+            try await cloud.setPersonalLightBrightness(light, brightness: brightness)
+            personalLights = try await cloud.personalLights()
+            homeControlStatus = "\(light.name) brightness set to \(brightness)% and confirmed by Personal."
+        } catch {
+            homeControlStatus = "Could not change \(light.name): \(error.localizedDescription)"
+        }
+    }
+
+    func setPersonalLightColour(_ light: PersonalHueLight, colour: UIColor) async {
+        guard changingLightID == nil else { return }
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        guard colour.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return }
+        changingLightID = light.id
+        defer { changingLightID = nil }
+        do {
+            try await cloud.setPersonalLightColour(light, red: Int((red * 255).rounded()), green: Int((green * 255).rounded()), blue: Int((blue * 255).rounded()))
+            personalLights = try await cloud.personalLights()
+            homeControlStatus = "\(light.name) colour changed and confirmed by Personal."
+        } catch {
+            homeControlStatus = "Could not change \(light.name): \(error.localizedDescription)"
+        }
+    }
+
+    func sendPersonalMediaCommand(_ command: String) async {
+        guard !isSendingMediaCommand else { return }
+        isSendingMediaCommand = true
+        defer { isSendingMediaCommand = false }
+        do {
+            try await cloud.sendPersonalMediaCommand(command)
+            mediaCommandStatus = "\(command) sent to Windows. Playback state is not verified."
+        } catch {
+            mediaCommandStatus = "Windows media control unavailable: \(error.localizedDescription)"
+        }
+    }
+
+    func scanPersonalDevices() async {
+        guard !isScanningDevices else { return }
+        isScanningDevices = true
+        scannerStatus = "Reading the paired Personal device inventory…"
+        defer { isScanningDevices = false }
+        do {
+            let scan = try await cloud.scanPersonalDevices()
+            let currentIDs = Set(scan.devices.map(\.id))
+            let previous = Set(UserDefaults.standard.stringArray(forKey: "sentinelMobileLastDeviceScan") ?? [])
+            scannerNewIDs = previous.isEmpty ? [] : currentIDs.subtracting(previous)
+            UserDefaults.standard.set(Array(currentIDs), forKey: "sentinelMobileLastDeviceScan")
+            scannedDevices = scan.devices
+            scannerNotes = scan.notes
+            scannerStatus = "\(scan.devices.count) devices observed by Personal at \(scan.scannedAt)."
+        } catch {
+            scannerStatus = error.localizedDescription
+        }
+    }
+
+    func setDeviceTrusted(_ device: PersonalScannedDevice, trusted: Bool) {
+        if trusted { trustedDeviceIDs.insert(device.id) } else { trustedDeviceIDs.remove(device.id) }
+        UserDefaults.standard.set(Array(trustedDeviceIDs), forKey: "sentinelMobileTrustedDevices")
+    }
+
+    func refreshMissionData() async {
+        missionDataStatus = "Loading Personal integrations…"
+        do {
+            personalIntegrations = try await cloud.personalIntegrations()
+            missionDataStatus = "\(personalIntegrations.filter(\.connected).count) of \(personalIntegrations.count) integrations connected."
+        } catch { missionDataStatus = "Integration status unavailable: \(error.localizedDescription)" }
+    }
+
+    func refreshGoveeDevices() async {
+        do { personalGoveeDevices = try await cloud.personalGoveeDevices() }
+        catch { goveeCommandStatus = "Govee unavailable: \(error.localizedDescription)" }
+    }
+
+    func controlGovee(_ device: PersonalGoveeDevice, control: PersonalGoveeControl) async {
+        guard changingGoveeID == nil else { return }
+        changingGoveeID = device.id
+        defer { changingGoveeID = nil }
+        do {
+            try await cloud.controlPersonalGovee(device, control: control)
+            goveeCommandStatus = "\(device.name) command accepted by Personal. Refresh the provider state to verify the device."
+        } catch { goveeCommandStatus = "Could not change \(device.name): \(error.localizedDescription)" }
+    }
+
+    func refreshSecurity() async {
+        missionDataStatus = "Loading Ring security from Personal…"
+        do {
+            personalRingDevices = try await cloud.personalRingDevices()
+            personalRingEvents = try await cloud.personalRingEvents()
+            missionDataStatus = "\(personalRingDevices.filter(\.online).count) of \(personalRingDevices.count) cameras online."
+        } catch { missionDataStatus = "Ring security unavailable: \(error.localizedDescription)" }
+    }
+
+    func refreshCameraSnapshot(id: String) async {
+        do {
+            if let data = try await cloud.personalRingSnapshot(id: id) { personalCameraSnapshots[id] = data }
+            else { personalCameraSnapshots.removeValue(forKey: id); missionDataStatus = "Camera preview is temporarily unavailable." }
+        } catch { missionDataStatus = "Camera preview unavailable: \(error.localizedDescription)" }
+    }
+
     func copyDesktopClipboardToPhone() {
         guard !desktopClipboardText.isEmpty else {
             return
@@ -1267,16 +1496,14 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     func searchMobilePlaces() async {
         let rawQuery = mapSearch.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !rawQuery.isEmpty else { return }
-        guard mobileServiceEnabled("navigation") else { mapStatus = MobileServiceError.permissionRequired.localizedDescription; return }
-        let generic = ["pharmacy", "coffee", "restaurant", "restaurants", "food", "petrol"].contains(rawQuery.lowercased())
-        let query: String
-        if generic, let currentLocation { query = "\(rawQuery) near \(currentLocation.latitude),\(currentLocation.longitude)" } else { query = rawQuery }
+        guard let currentLocation else { mapStatus = "Finding your iPhone location. Try again in a moment."; refreshWeather(); return }
         mapStatus = "Searching nearby places…"
         do {
-            let data = try await cloud.mobileService(path: "/mobile/services/navigation", queryItems: [URLQueryItem(name: "query", value: query)])
-            let response = try JSONDecoder().decode(SentinelPlacesResponse.self, from: data)
-            if response.status != "OK" && response.status != "ZERO_RESULTS" { mapStatus = response.errorMessage ?? "Places search could not be completed."; return }
-            placeResults = response.results.sorted { ($0.isUK ? 1 : 0, $0.rating ?? 0) > ($1.isUK ? 1 : 0, $1.rating ?? 0) }
+            let request = MKLocalSearch.Request()
+            request.naturalLanguageQuery = rawQuery
+            request.region = MKCoordinateRegion(center: currentLocation, span: .init(latitudeDelta: 0.5, longitudeDelta: 0.7))
+            let response = try await MKLocalSearch(request: request).start()
+            placeResults = response.mapItems.prefix(20).map(SentinelPlaceResult.init(mapItem:))
             mapStatus = placeResults.isEmpty ? "No nearby places found." : "\(placeResults.count) nearby places found."
         } catch { mapStatus = error.localizedDescription }
     }
@@ -1360,7 +1587,13 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
                 if let status = serviceError.httpStatus { radarHTTPStatus = "HTTP \(status)" } else { radarHTTPStatus = "No HTTP response" }
                 if case .notPermitted = serviceError { radarStatus = "Weather access is not enabled for this iPhone." }
                 else { radarStatus = radarMetadata == nil ? serviceError.localizedDescription : "Showing cached radar imagery. Live refresh will retry." }
-            } else { radarHTTPStatus = "No HTTP response"; radarStatus = radarMetadata == nil ? "Live radar could not be refreshed." : "Showing cached radar imagery. Live refresh will retry." }
+            } else {
+                if radarHTTPStatus == "Requesting…" { radarHTTPStatus = "No HTTP response" }
+                let detail = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+                radarStatus = radarMetadata == nil
+                    ? (detail.isEmpty ? "Live radar could not be refreshed." : "Radar response error: \(detail)")
+                    : "Showing cached radar imagery. Live refresh will retry."
+            }
         }
     }
 
@@ -1683,12 +1916,45 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
         return "Sentinel could not respond. Check your connection and try again."
     }
 
+    func searchTravelDestination() async {
+        let destination = travelDestinationSearch.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !destination.isEmpty else { travelDestinationStatus = "Enter a destination first."; return }
+        travelDestinationStatus = "Finding places in \(destination)…"
+        do {
+            let request = MKLocalSearch.Request()
+            request.naturalLanguageQuery = destination
+            let response = try await MKLocalSearch(request: request).start()
+            travelDestinationResults = response.mapItems.prefix(12).map(SentinelPlaceResult.init(mapItem:))
+            travelDestinationStatus = travelDestinationResults.isEmpty ? "No destination results found." : "\(travelDestinationResults.count) places in \(destination)."
+        } catch { travelDestinationStatus = error.localizedDescription }
+    }
+
+    private func localChatCapabilityReply(for prompt: String) -> String? {
+        let normalised = prompt.lowercased().trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        if normalised.range(of: #"\b(can you|do you|are you able to)\s+(make|create|generate|draw)\s+(an?\s+)?(image|images|picture|pictures)\b"#, options: .regularExpression) != nil {
+            return "Yes. Tell me what you want the image to show and the style you prefer, and I can generate it here for you."
+        }
+        if normalised.range(of: #"\bwhat can you do\b|\bchat features\b"#, options: .regularExpression) != nil {
+            return "I can chat, speak replies, use Live Talk, generate images, analyse supported attachments, remember conversations, and use your permitted Sentinel weather, navigation and travel services."
+        }
+        return nil
+    }
+
     private func loadCachedWeather() {
         if let data = UserDefaults.standard.data(forKey: "sentinelRadarMetadata"), let saved = try? JSONDecoder().decode(SentinelRadarMetadata.self, from: data) {
-            radarMetadata = saved.sorted
-            radarFrameCount = saved.frames.count
-            radarLatestFrame = saved.frames.last?.date.formatted(date: .omitted, time: .shortened) ?? "No frames"
-            radarStatus = "Showing cached radar metadata."
+            if saved.provider.caseInsensitiveCompare("WeatherAPI") == .orderedSame {
+                radarMetadata = saved.sorted
+                radarFrameCount = saved.frames.count
+                radarLatestFrame = saved.frames.last?.date.formatted(date: .omitted, time: .shortened) ?? "No frames"
+                radarStatus = "Showing cached WeatherAPI radar metadata."
+            } else {
+                UserDefaults.standard.removeObject(forKey: "sentinelRadarMetadata")
+                UserDefaults.standard.removeObject(forKey: "sentinelRadarMetadataDate")
+                radarMetadata = nil
+                radarFrameCount = 0
+                radarLatestFrame = "No WeatherAPI frames"
+                radarStatus = "Legacy radar cache removed. Refreshing WeatherAPI radar…"
+            }
         }
         guard let data =
                 UserDefaults.standard.data(
@@ -1868,6 +2134,11 @@ struct SentinelActivity: Identifiable, Codable {
     }
 }
 
+private struct PersonalTravelListing: Decodable { let items: [Item]; struct Item: Decodable { let text: String?; let sourceDeviceId: String?; let createdAt: String } }
+private struct PersonalTravelSnapshot: Decodable { let trips: [PersonalTravelTrip]; let flights: [PersonalTravelFlight] }
+struct PersonalTravelTrip: Identifiable, Decodable { let id: String; let destination: String; let startDate: String; let endDate: String }
+struct PersonalTravelFlight: Identifiable, Decodable { let id: String; let number: String; let departure: String; let arrival: String; let dateTime: String; let terminal: String; let status: String }
+
 struct SentinelTrip: Identifiable, Codable {
     let id: UUID
     let title: String
@@ -1922,6 +2193,12 @@ struct SentinelPlaceResult: Identifiable, Decodable {
     var latitude: Double { geometry.location.lat }
     var longitude: Double { geometry.location.lng }
     var isUK: Bool { formattedAddress?.localizedCaseInsensitiveContains("UK") == true || formattedAddress?.localizedCaseInsensitiveContains("United Kingdom") == true }
+    init(mapItem: MKMapItem) {
+        name = mapItem.name ?? "Place"
+        formattedAddress = mapItem.placemark.title
+        geometry = Geometry(location: Geometry.Location(lat: mapItem.placemark.coordinate.latitude, lng: mapItem.placemark.coordinate.longitude))
+        rating = nil; userRatingsTotal = nil; openingHours = nil; placeID = nil; types = nil
+    }
 }
 
 struct SentinelSavedPlace: Identifiable, Codable {
@@ -2298,6 +2575,10 @@ enum SentinelPage: String, CaseIterable, Identifiable {
     case navigation = "Navigation"
     case travel = "Travel"
     case weather = "Weather"
+    case concierge = "Concierge"
+    case media = "Media"
+    case scanner = "Device Scanner"
+    case missionControl = "Mission Control"
     case notifications = "Notifications"
     case settings = "Settings"
     case system = "System"
@@ -2308,6 +2589,10 @@ enum SentinelPage: String, CaseIterable, Identifiable {
         .navigation,
         .travel,
         .weather,
+        .concierge,
+        .media,
+        .scanner,
+        .missionControl,
         .notifications,
         .settings,
         .system
@@ -2329,6 +2614,14 @@ enum SentinelPage: String, CaseIterable, Identifiable {
             "airplane"
         case .weather:
             "cloud.sun.fill"
+        case .concierge:
+            "sparkles.rectangle.stack.fill"
+        case .media:
+            "music.note.list"
+        case .scanner:
+            "network"
+        case .missionControl:
+            "shield.lefthalf.filled"
         case .notifications:
             "bell.fill"
         case .settings:
@@ -2425,6 +2718,101 @@ struct SentinelMobileStatus: Decodable {
     let tokenExpiresAt: String?
     let services: [String: Service]
     let capabilities: [String: Bool]?
+}
+
+struct ConciergePlanRequest: Encodable {
+    let request: String
+    let people: Int
+    let allergies: String
+    let budget: Double
+}
+
+struct ConciergePlan: Decodable {
+    struct Pizza: Decodable { let name: String; let toppings: [String]; let remove: [String]; let notes: String }
+    let summary: String
+    let size: String
+    let crust: String
+    let quantity: Int
+    let pizzas: [Pizza]
+    let sides: [String]
+    let drinks: [String]
+    let estimatedTotal: Double
+    let warnings: [String]
+}
+
+struct PersonalHueLight: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let on: Bool
+    let brightness: Int?
+    let supportsBrightness: Bool?
+    let supportsColour: Bool?
+}
+
+struct PersonalDeviceScan: Decodable {
+    let scannedAt: String
+    let devices: [PersonalScannedDevice]
+    let notes: [String]
+}
+
+struct PersonalScannedDevice: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let kind: String
+    let address: String?
+    let mac: String?
+    let interfaceName: String?
+    let networkState: String?
+    let status: String
+    let support: String
+    let detail: String
+}
+
+struct PersonalIntegration: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let connected: Bool
+    let description: String
+}
+
+struct PersonalGoveeDevice: Decodable, Identifiable {
+    let id: String
+    let model: String
+    let name: String
+    let controllable: Bool
+    let supportsBrightness: Bool
+    let supportsColour: Bool
+}
+
+struct PersonalGoveeControl: Encodable {
+    struct RGB: Encodable { let r: Int; let g: Int; let b: Int }
+    let on: Bool?
+    let brightness: Int?
+    let colour: RGB?
+    init(on: Bool? = nil, brightness: Int? = nil, colour: RGB? = nil) { self.on = on; self.brightness = brightness; self.colour = colour }
+}
+
+struct PersonalRingDevice: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let model: String
+    let kind: String
+    let battery: Double?
+    let online: Bool
+    let hasLight: Bool
+    let hasSiren: Bool
+}
+
+struct PersonalRingEvent: Decodable, Identifiable {
+    let id: String
+    let deviceName: String
+    let kind: String
+    let occurredAt: String
+}
+
+struct PersonalCameraSnapshot: Decodable {
+    let available: Bool
+    let data: String?
 }
 
 enum SentinelDesktopAction: String, CaseIterable, Identifiable {

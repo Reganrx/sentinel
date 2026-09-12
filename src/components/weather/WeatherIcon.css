@@ -1,0 +1,43 @@
+.weather-icon{
+
+    display:block;
+
+    object-fit:contain;
+
+    user-select:none;
+
+    pointer-events:none;
+
+    filter:
+
+        drop-shadow(
+
+            0 0 10px
+
+            rgba(255,255,255,.18)
+
+        );
+
+    transition:
+
+        transform .25s ease,
+
+        filter .25s ease;
+
+}
+
+.weather-icon:hover{
+
+    transform:scale(1.05);
+
+    filter:
+
+        drop-shadow(
+
+            0 0 18px
+
+            rgba(255,255,255,.28)
+
+        );
+
+}

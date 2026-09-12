@@ -1,0 +1,50 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "sentinel ai",
+      "intents": [
+        {
+          "name": "BeginPairingIntent",
+          "samples": [
+            "pair",
+            "pair sentinel",
+            "start pairing",
+            "connect sentinel",
+            "set up pairing"
+          ],
+          "slots": []
+        },
+        {
+          "name": "PairSentinelIntent",
+          "samples": [
+            "pair {pairingPhrase}",
+            "pair phrase {pairingPhrase}",
+            "the phrase is {pairingPhrase}",
+            "my phrase is {pairingPhrase}"
+          ],
+          "slots": [
+            {
+              "name": "pairingPhrase",
+              "type": "AMAZON.SearchQuery"
+            }
+          ]
+        },
+        {
+          "name": "SentinelCommandIntent",
+          "samples": ["please {command}", "tell sentinel to {command}"],
+          "slots": [
+            {
+              "name": "command",
+              "type": "AMAZON.SearchQuery"
+            }
+          ]
+        },
+        { "name": "AMAZON.HelpIntent", "samples": [] },
+        { "name": "AMAZON.CancelIntent", "samples": [] },
+        { "name": "AMAZON.StopIntent", "samples": [] },
+        { "name": "AMAZON.FallbackIntent", "samples": [] }
+      ],
+      "types": []
+    }
+  }
+}
