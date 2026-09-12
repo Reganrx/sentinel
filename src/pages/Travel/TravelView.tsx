@@ -3,6 +3,7 @@ import { AlertTriangle, CalendarDays, Check, ChevronDown, ChevronUp, CirclePlus,
 import { discoverAtDestination, searchLocations, type NearbyPlace } from "../../services/navigation";
 import useWorld from "../../hooks/useWorld";
 import { API_URL } from "../../services/api";
+import { sendCompanionText } from "../../services/automation";
 import "./TravelView.css"; import "./FlightTracking.css"; import "./TravelReadability.css"; import "./TravelLayoutFix.css"; import "./TravelTabs.css"; import "./TravelCollapse.css";
 
 type Trip = { id: string; destination: string; startDate: string; endDate: string; latitude?: number; longitude?: number };
@@ -22,6 +23,12 @@ export default function TravelView() {
   const [checks, setChecks] = useState<Record<string, boolean>>(() => read(checklistKey, {})); const [recommendations, setRecommendations] = useState<NearbyPlace[]>([]);
   const [recommendationType, setRecommendationType] = useState("things to do"); const [loading, setLoading] = useState(false); const [tracking, setTracking] = useState(""); const [error, setError] = useState("");
   useEffect(() => localStorage.setItem(tripKey, JSON.stringify(trips)), [trips]); useEffect(() => localStorage.setItem(flightKey, JSON.stringify(flights)), [flights]); useEffect(() => localStorage.setItem(checklistKey, JSON.stringify(checks)), [checks]);
+  useEffect(() => {
+    if (!trips.length && !flights.length) return;
+    const snapshot = `SENTINEL_TRAVEL_V1:${JSON.stringify({ trips, flights })}`;
+    const timer = window.setTimeout(() => { void sendCompanionText(snapshot).catch(() => undefined); }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [trips, flights]);
   useEffect(() => { if (!selectedId && trips[0]) setSelectedId(trips[0].id); }, [trips, selectedId]);
   useEffect(() => { if (!flights.length) setFlightFormExpanded(true); }, [flights.length]);
   useEffect(() => {

@@ -52,6 +52,9 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     @Published var showUnreadOnly = false
 
     @Published var mapSearch = ""
+    @Published var travelDestinationSearch = ""
+    @Published private(set) var travelDestinationResults: [SentinelPlaceResult] = []
+    @Published private(set) var travelDestinationStatus = "Choose a saved trip or enter a destination."
     @Published var mapStatus = "Search for a destination to open it in Apple Maps."
     @Published private(set) var placeResults: [SentinelPlaceResult] = []
     @Published var journeyDestination = ""
@@ -73,6 +76,9 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     @Published var flightDate = Date()
     @Published var flightTerminal = ""
     @Published private(set) var flights: [SentinelFlight] = []
+    @Published private(set) var personalTrips: [PersonalTravelTrip] = []
+    @Published private(set) var personalFlights: [PersonalTravelFlight] = []
+    @Published private(set) var personalTravelStatus = "Pull saved trips and flights from Personal."
     @Published private(set) var flightStatus: SentinelAviationFlight?
     @Published private(set) var flightStatusMessage = "Search a flight number for live status."
     @Published private(set) var isLoadingFlightStatus = false
@@ -864,6 +870,12 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
         guard (!prompt.isEmpty || !chatAttachments.isEmpty), !isSendingChat else {
             return
         }
+        if chatError != nil, chatMessages.last?.role == .user,
+           chatMessages.last?.text == prompt, chatAttachments.isEmpty {
+            await retryAssistantPrompt()
+            chatDraft = ""
+            return
+        }
         let messageText = prompt.isEmpty ? "Please analyse the attached file." : prompt
         let attachments = chatAttachments
 
@@ -1098,6 +1110,24 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
         }
     }
 
+    func refreshPersonalTravel() async {
+        guard companionPaired else { personalTravelStatus = "Pair with Sentinel Personal first."; return }
+        personalTravelStatus = "Syncing saved travel…"
+        do {
+            let data = try await cloud.listSharedItems()
+            let listing = try JSONDecoder().decode(PersonalTravelListing.self, from: data)
+            guard let snapshot = listing.items.filter({ $0.text?.hasPrefix("SENTINEL_TRAVEL_V1:") == true && $0.sourceDeviceId == "desktop" }).sorted(by: { $0.createdAt > $1.createdAt }).first,
+                  let payload = snapshot.text?.dropFirst("SENTINEL_TRAVEL_V1:".count).data(using: .utf8) else {
+                personalTravelStatus = "No Personal travel snapshot yet. Open Travel on your desktop while paired."
+                return
+            }
+            let travel = try JSONDecoder().decode(PersonalTravelSnapshot.self, from: payload)
+            personalTrips = travel.trips
+            personalFlights = travel.flights
+            personalTravelStatus = "\(travel.trips.count) trips and \(travel.flights.count) flights synced from Personal."
+        } catch { personalTravelStatus = "Travel sync unavailable: \(error.localizedDescription)" }
+    }
+
     func copyDesktopClipboardToPhone() {
         guard !desktopClipboardText.isEmpty else {
             return
@@ -1278,16 +1308,14 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     func searchMobilePlaces() async {
         let rawQuery = mapSearch.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !rawQuery.isEmpty else { return }
-        guard mobileServiceEnabled("navigation") else { mapStatus = MobileServiceError.permissionRequired.localizedDescription; return }
-        let generic = ["pharmacy", "coffee", "restaurant", "restaurants", "food", "petrol"].contains(rawQuery.lowercased())
-        let query: String
-        if generic, let currentLocation { query = "\(rawQuery) near \(currentLocation.latitude),\(currentLocation.longitude)" } else { query = rawQuery }
+        guard let currentLocation else { mapStatus = "Finding your iPhone location. Try again in a moment."; refreshWeather(); return }
         mapStatus = "Searching nearby places…"
         do {
-            let data = try await cloud.mobileService(path: "/mobile/services/navigation", queryItems: [URLQueryItem(name: "query", value: query)])
-            let response = try JSONDecoder().decode(SentinelPlacesResponse.self, from: data)
-            if response.status != "OK" && response.status != "ZERO_RESULTS" { mapStatus = response.errorMessage ?? "Places search could not be completed."; return }
-            placeResults = response.results.sorted { ($0.isUK ? 1 : 0, $0.rating ?? 0) > ($1.isUK ? 1 : 0, $1.rating ?? 0) }
+            let request = MKLocalSearch.Request()
+            request.naturalLanguageQuery = rawQuery
+            request.region = MKCoordinateRegion(center: currentLocation, span: .init(latitudeDelta: 0.5, longitudeDelta: 0.7))
+            let response = try await MKLocalSearch(request: request).start()
+            placeResults = response.mapItems.prefix(20).map(SentinelPlaceResult.init(mapItem:))
             mapStatus = placeResults.isEmpty ? "No nearby places found." : "\(placeResults.count) nearby places found."
         } catch { mapStatus = error.localizedDescription }
     }
@@ -1700,6 +1728,19 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
         return "Sentinel could not respond. Check your connection and try again."
     }
 
+    func searchTravelDestination() async {
+        let destination = travelDestinationSearch.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !destination.isEmpty else { travelDestinationStatus = "Enter a destination first."; return }
+        travelDestinationStatus = "Finding places in \(destination)…"
+        do {
+            let request = MKLocalSearch.Request()
+            request.naturalLanguageQuery = destination
+            let response = try await MKLocalSearch(request: request).start()
+            travelDestinationResults = response.mapItems.prefix(12).map(SentinelPlaceResult.init(mapItem:))
+            travelDestinationStatus = travelDestinationResults.isEmpty ? "No destination results found." : "\(travelDestinationResults.count) places in \(destination)."
+        } catch { travelDestinationStatus = error.localizedDescription }
+    }
+
     private func localChatCapabilityReply(for prompt: String) -> String? {
         let normalised = prompt.lowercased().trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
         if normalised.range(of: #"\b(can you|do you|are you able to)\s+(make|create|generate|draw)\s+(an?\s+)?(image|images|picture|pictures)\b"#, options: .regularExpression) != nil {
@@ -1905,6 +1946,11 @@ struct SentinelActivity: Identifiable, Codable {
     }
 }
 
+private struct PersonalTravelListing: Decodable { let items: [Item]; struct Item: Decodable { let text: String?; let sourceDeviceId: String?; let createdAt: String } }
+private struct PersonalTravelSnapshot: Decodable { let trips: [PersonalTravelTrip]; let flights: [PersonalTravelFlight] }
+struct PersonalTravelTrip: Identifiable, Decodable { let id: String; let destination: String; let startDate: String; let endDate: String }
+struct PersonalTravelFlight: Identifiable, Decodable { let id: String; let number: String; let departure: String; let arrival: String; let dateTime: String; let terminal: String; let status: String }
+
 struct SentinelTrip: Identifiable, Codable {
     let id: UUID
     let title: String
@@ -1959,6 +2005,12 @@ struct SentinelPlaceResult: Identifiable, Decodable {
     var latitude: Double { geometry.location.lat }
     var longitude: Double { geometry.location.lng }
     var isUK: Bool { formattedAddress?.localizedCaseInsensitiveContains("UK") == true || formattedAddress?.localizedCaseInsensitiveContains("United Kingdom") == true }
+    init(mapItem: MKMapItem) {
+        name = mapItem.name ?? "Place"
+        formattedAddress = mapItem.placemark.title
+        geometry = Geometry(location: Geometry.Location(lat: mapItem.placemark.coordinate.latitude, lng: mapItem.placemark.coordinate.longitude))
+        rating = nil; userRatingsTotal = nil; openingHours = nil; placeID = nil; types = nil
+    }
 }
 
 struct SentinelSavedPlace: Identifiable, Codable {

@@ -268,6 +268,7 @@ struct SentinelCloud {
 
     func fetchClipboard() async throws -> Data { try await companionRequest(path: "/clipboard") }
     func listFiles() async throws -> Data { try await companionRequest(path: "/files") }
+    func listSharedItems() async throws -> Data { try await cloudCompanionRequest(path: "/items", method: "GET", body: nil) }
     func deleteFile(id: String) async throws { _ = try await companionRequest(path: "/files/\(id)", method: "DELETE") }
 
     func transfer(data: Data, filename: String) async throws -> TransferRoute {
