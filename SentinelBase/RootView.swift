@@ -424,6 +424,15 @@ private struct SentinelWeatherDashboard: View {
             .overlay(RoundedRectangle(cornerRadius: 22).stroke(accent.opacity(0.25)))
             .overlay(alignment: .topLeading) { if let frame { VStack(alignment: .leading, spacing: 2) { Text(radarFrameLabel(frame.date).uppercased()).font(.caption2.bold()).tracking(1); Text(frame.date.formatted(date: .omitted, time: .shortened)).font(.headline) }.padding(.horizontal, 12).padding(.vertical, 9).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 13)).padding(12) } }
             .overlay(alignment: .bottomTrailing) { Button { radarWideView = false; radarRecenterNonce += 1 } label: { Image(systemName: "location.fill").font(.headline).padding(12).background(.ultraThinMaterial, in: Circle()) }.padding(12).disabled(app.lastKnownLocation == nil).accessibilityLabel("Return to current location") }
+        if let frame, let rain = rainDetails(for: frame.date) {
+            HStack(spacing: 10) {
+                weatherMetric("Rain chance", "\(rain.chance)%", "drop.fill")
+                weatherMetric("Rain amount", String(format: "%.1f mm", rain.amount), "cloud.rain.fill")
+            }
+            Text(rain.summary).font(.caption).foregroundStyle(rain.chance >= 50 || rain.amount > 0 ? accent : .secondary)
+        } else {
+            Text("Load Current & Hourly weather to show rain chance and rainfall amount for each radar frame.").font(.caption).foregroundStyle(.secondary)
+        }
         HStack(spacing: 0) {
             radarLegend("None", .clear); radarLegend("Light", .blue); radarLegend("Moderate", .green); radarLegend("Heavy", .yellow); radarLegend("Severe", .red)
         }.padding(8).background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 13))
@@ -438,13 +447,20 @@ private struct SentinelWeatherDashboard: View {
         }
         DisclosureGroup("Radar diagnostics") { VStack(alignment: .leading, spacing: 3) { Text("Request: \(SentinelCloud.relayBaseURL)/mobile/services/weather/radar"); Text("Status: \(app.radarHTTPStatus) · Mobile token found: \(KeychainStore.string(for: "mobileServiceAccessToken") == nil ? "No" : "Yes")"); Text("Frames: \(app.radarFrameCount) · Latest: \(app.radarLatestFrame)") }.font(.caption2).foregroundStyle(.secondary).textSelection(.enabled) }.font(.caption2).foregroundStyle(.secondary)
         Text("No colour means no precipitation in the selected frame. Use Wider UK view to see systems approaching your area.").font(.caption2).foregroundStyle(.secondary)
-        if let weather = app.weather { VStack(alignment: .leading, spacing: 7) { Text("NEXT 6 HOURS").font(.caption.bold()).foregroundStyle(accent); ScrollView(.horizontal, showsIndicators: false) { HStack { ForEach(Array(weather.hourly.time.prefix(6).enumerated()), id: \.offset) { index, time in VStack(spacing: 3) { Text(String(time.suffix(5))).font(.caption2); Image(systemName: weather.symbol).foregroundStyle(accent); Text("\(Int(weather.hourly.temperature2m[index]))°").font(.caption.bold()); Text("\(weather.hourly.precipitationProbability[index])%").font(.caption2).foregroundStyle(.secondary) }.frame(width: 58).padding(6).background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10)) } } } } }
+        if let weather = app.weather { VStack(alignment: .leading, spacing: 7) { Text("NEXT 6 HOURS").font(.caption.bold()).foregroundStyle(accent); ScrollView(.horizontal, showsIndicators: false) { HStack { ForEach(futureHours(weather, limit: 6), id: \.offset) { index, time in VStack(spacing: 3) { Text(String(time.suffix(5))).font(.caption2); Image(systemName: hourlySymbol(index, fallback: weather.current.weatherCode)).foregroundStyle(accent); Text("\(Int(weather.hourly.temperature2m[index]))°").font(.caption.bold()); Text("\(weather.hourly.precipitationProbability[index])% · \(hourlyRainAmount(index), specifier: "%.1f") mm").font(.system(size: 9, weight: .medium)).foregroundStyle(weather.hourly.precipitationProbability[index] >= 50 ? accent : .secondary) }.frame(width: 86).padding(6).background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10)) } } } } }
     } }
     private func weatherMetric(_ title: String, _ value: String, _ symbol: String) -> some View { HStack(spacing: 11) { Image(systemName: symbol).font(.title3).foregroundStyle(accent).frame(width: 27); VStack(alignment: .leading, spacing: 2) { Text(title).font(.caption).foregroundStyle(.secondary); Text(value).font(.headline) }; Spacer() }.padding(13).background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16)) }
     private func weatherHeroColours(_ code: Int) -> [Color] { switch code { case 0: [Color(red: 0.05, green: 0.38, blue: 0.72), Color(red: 0.08, green: 0.69, blue: 0.88)]; case 45, 48: [Color(red: 0.18, green: 0.25, blue: 0.31), Color(red: 0.35, green: 0.43, blue: 0.48)]; case 51...67, 80...82: [Color(red: 0.04, green: 0.12, blue: 0.24), Color(red: 0.08, green: 0.31, blue: 0.47)]; case 95...99: [Color(red: 0.08, green: 0.05, blue: 0.19), Color(red: 0.28, green: 0.13, blue: 0.40)]; default: [Color(red: 0.08, green: 0.22, blue: 0.38), Color(red: 0.18, green: 0.43, blue: 0.59)] } }
     private func rainSummary(_ weather: SentinelWeather) -> String { let hours = futureHours(weather, limit: 6); guard let wet = hours.first(where: { weather.hourly.precipitationProbability[$0.offset] >= 50 }) else { return "Low chance of rain for the next six hours" }; return "Rain chance reaches \(weather.hourly.precipitationProbability[wet.offset])% around \(String(wet.element.suffix(5)))" }
     private func hourlySymbol(_ index: Int, fallback: Int) -> String { let hours = app.weatherDetails?.forecast.forecastday.flatMap(\.hour) ?? []; guard hours.indices.contains(index) else { return SentinelWeather.symbol(for: fallback) }; return SentinelWeather.symbol(for: SentinelWeather.conditionCode(for: hours[index].condition.text)) }
     private func radarLegend(_ title: String, _ colour: Color) -> some View { VStack(spacing: 4) { RoundedRectangle(cornerRadius: 3).fill(title == "None" ? Color.white.opacity(0.14) : colour).frame(height: 5); Text(title).font(.system(size: 8, weight: .semibold)).foregroundStyle(.secondary) }.frame(maxWidth: .infinity) }
+    private func hourlyRainAmount(_ index: Int) -> Double { let hours = app.weatherDetails?.forecast.forecastday.flatMap(\.hour) ?? []; return hours.indices.contains(index) ? hours[index].precipMm : 0 }
+    private func rainDetails(for date: Date) -> (chance: Int, amount: Double, summary: String)? {
+        let hours = app.weatherDetails?.forecast.forecastday.flatMap(\.hour) ?? []
+        guard let hour = hours.min(by: { abs(weatherDate($0.time).timeIntervalSince(date)) < abs(weatherDate($1.time).timeIntervalSince(date)) }) else { return nil }
+        let summary = hour.willItRain == 1 || hour.precipMm > 0 ? "WeatherAPI expects rainfall around this time." : "WeatherAPI currently expects no measurable rainfall at your location for this hour."
+        return (hour.chanceOfRain, hour.precipMm, summary)
+    }
     private func previousRadarFrame() { guard let count = app.radarMetadata?.frames.count, count > 0 else { return }; radarFrameIndex = (radarFrameIndex - 1 + count) % count; stopRadarPlayback() }
     private func radarFrameLabel(_ date: Date) -> String { guard date <= .now else { return "Forecast" }; let minutes = Int(Date().timeIntervalSince(date) / 60); return minutes > 15 ? "Observed · \(minutes)m ago" : "Observed · current" }
     private func nextRadarFrame() { guard let count = app.radarMetadata?.frames.count, count > 0 else { return }; radarFrameIndex = min(radarFrameIndex + 1, count - 1); stopRadarPlayback() }
@@ -487,7 +503,7 @@ private struct RadarTileMap: UIViewRepresentable {
             if let tileTemplate {
                 let overlay = MKTileOverlay(urlTemplate: tileTemplate)
                 overlay.minimumZ = 0
-                overlay.maximumZ = 7
+                overlay.maximumZ = 12
                 overlay.tileSize = CGSize(width: 256, height: 256)
                 overlay.canReplaceMapContent = false
                 map.addOverlay(overlay, level: .aboveLabels)
@@ -544,7 +560,7 @@ private struct SentinelChatWorkspace: View {
 
     private var assistantWorkspace: some View {
         VStack(spacing: 6) {
-            HStack(spacing: 8) { VStack(alignment: .leading, spacing: 0) { Text(app.conversationTitle).font(.headline).lineLimit(1); Text("Sentinel AI").font(.caption2).foregroundStyle(.secondary) }; Spacer(); Button { renamedTitle = app.conversationTitle; renamePresented = true } label: { Image(systemName: "pencil") }.buttonStyle(.bordered); Button { historyPresented = true } label: { Image(systemName: "clock.arrow.circlepath") }.buttonStyle(.bordered).accessibilityLabel("Conversation history"); Menu { Button(app.spokenResponses ? "Turn spoken replies off" : "Turn spoken replies on") { app.setSpokenResponses(!app.spokenResponses) }; ShareLink(item: app.conversationExportText) { Label("Export conversation", systemImage: "square.and.arrow.up") }; Button("New conversation") { app.newConversation() }; Button("Clear current conversation", role: .destructive) { app.clearConversation() } } label: { Image(systemName: "ellipsis.circle") }.buttonStyle(.bordered).accessibilityLabel("Conversation options") }.padding(.horizontal)
+            HStack(spacing: 10) { VStack(alignment: .leading, spacing: 1) { Text(app.conversationTitle).font(.headline).lineLimit(1); Text(app.isSendingChat ? "Sentinel is responding…" : "Sentinel AI").font(.caption2).foregroundStyle(.secondary) }; Spacer(); Button { historyPresented = true } label: { Image(systemName: "clock.arrow.circlepath") }.buttonStyle(.bordered).accessibilityLabel("Conversation history"); Menu { Button("Rename conversation") { renamedTitle = app.conversationTitle; renamePresented = true }; Button(app.spokenResponses ? "Turn spoken replies off" : "Turn spoken replies on") { app.setSpokenResponses(!app.spokenResponses) }; ShareLink(item: app.conversationExportText) { Label("Export conversation", systemImage: "square.and.arrow.up") }; Button("New conversation") { app.newConversation() }; Button("Clear current conversation", role: .destructive) { app.clearConversation() } } label: { Image(systemName: "ellipsis.circle") }.buttonStyle(.bordered).accessibilityLabel("Conversation options") }.padding(.horizontal).padding(.bottom, 4).background(Color.black.opacity(0.12))
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
@@ -579,7 +595,7 @@ private struct SentinelChatWorkspace: View {
                         }
                         if !app.chatCards.isEmpty || !app.chatActions.isEmpty { SentinelStructuredReply() }
                         if app.isSendingChat { HStack(spacing: 10) { ProgressView().tint(accent); Text("Sentinel is thinking…").foregroundStyle(.secondary) }.padding(.vertical, 8) }
-                        if let error = app.chatError { VStack(alignment: .leading, spacing: 8) { Label(error, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.orange); Button("Retry") { Task { await app.retryAssistantPrompt() } }.buttonStyle(.bordered).tint(accent) }.padding(12).background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 14)) }
+                        if let error = app.chatError { VStack(alignment: .leading, spacing: 8) { Label(error, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.orange); HStack { Button("Retry") { Task { await app.retryAssistantPrompt() } }.buttonStyle(.bordered).tint(accent); if error.localizedCaseInsensitiveContains("limit") { Text("Your message is saved. Retry after a short pause.").font(.caption2).foregroundStyle(.secondary) } } }.padding(12).background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 14)) }
                         Color.clear.frame(height: 1).id("chat-bottom")
                     }
                     .padding(.horizontal)

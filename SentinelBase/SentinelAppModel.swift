@@ -880,6 +880,12 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
 
         chatDraft = ""
         persistChatConversation()
+        if let instantReply = localChatCapabilityReply(for: messageText), attachments.isEmpty {
+            chatMessages.append(SentinelChatMessage(role: .assistant, text: instantReply))
+            if spokenResponses { speakAssistantResponse(instantReply) }
+            persistChatConversation()
+            return
+        }
         isSendingChat = true
         defer { isSendingChat = false }
 
@@ -1686,6 +1692,17 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
             return "Sentinel could not reach the desktop bridge. AI Chat permission is not enabled for Cloudflare fallback."
         }
         return "Sentinel could not respond. Check your connection and try again."
+    }
+
+    private func localChatCapabilityReply(for prompt: String) -> String? {
+        let normalised = prompt.lowercased().trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        if normalised.range(of: #"\b(can you|do you|are you able to)\s+(make|create|generate|draw)\s+(an?\s+)?(image|images|picture|pictures)\b"#, options: .regularExpression) != nil {
+            return "Yes. Tell me what you want the image to show and the style you prefer, and I can generate it here for you."
+        }
+        if normalised.range(of: #"\bwhat can you do\b|\bchat features\b"#, options: .regularExpression) != nil {
+            return "I can chat, speak replies, use Live Talk, generate images, analyse supported attachments, remember conversations, and use your permitted Sentinel weather, navigation and travel services."
+        }
+        return nil
     }
 
     private func loadCachedWeather() {

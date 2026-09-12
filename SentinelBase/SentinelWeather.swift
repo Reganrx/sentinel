@@ -82,8 +82,8 @@ struct SentinelWeatherAPIResponse: Decodable {
     struct Day: Decodable { let maxtempC: Double; let mintempC: Double; let avgtempC: Double; let dailyChanceOfRain: Int; let condition: Condition
         enum CodingKeys: String, CodingKey { case maxtempC = "maxtemp_c", mintempC = "mintemp_c", avgtempC = "avgtemp_c", dailyChanceOfRain = "daily_chance_of_rain", condition }
     }
-    struct Hour: Decodable { let time: String; let tempC: Double; let feelslikeC: Double; let chanceOfRain: Int; let condition: Condition
-        enum CodingKeys: String, CodingKey { case time, tempC = "temp_c", feelslikeC = "feelslike_c", chanceOfRain = "chance_of_rain", condition }
+    struct Hour: Decodable { let time: String; let tempC: Double; let feelslikeC: Double; let chanceOfRain: Int; let precipMm: Double; let willItRain: Int; let condition: Condition
+        enum CodingKeys: String, CodingKey { case time, tempC = "temp_c", feelslikeC = "feelslike_c", chanceOfRain = "chance_of_rain", precipMm = "precip_mm", willItRain = "will_it_rain", condition }
     }
     struct ForecastDay: Decodable { let date: String; let day: Day; let hour: [Hour] }
     struct Forecast: Decodable { let forecastday: [ForecastDay] }
