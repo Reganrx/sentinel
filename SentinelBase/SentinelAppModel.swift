@@ -968,10 +968,16 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     }
 
     func retryAssistantPrompt() async {
-        guard chatMessages.last(where: { $0.role == .user }) != nil, !isSendingChat else { return }
+        guard let lastUserMessage = chatMessages.last(where: { $0.role == .user }), !isSendingChat else { return }
         chatError = nil
         isSendingChat = true
         defer { isSendingChat = false }
+        if chatAttachments.isEmpty, let weatherReply = await directWeatherChatReply(for: lastUserMessage.text) {
+            chatMessages.append(SentinelChatMessage(role: .assistant, text: weatherReply))
+            if spokenResponses { speakAssistantResponse(weatherReply) }
+            persistChatConversation()
+            return
+        }
         do {
             let reply = try await cloud.sendAssistantMessage(messages: Array(chatMessages.suffix(16)), allowCloudFallback: mobileChatAccessEnabled, conversationID: conversationID, context: chatContext, attachments: chatAttachments)
             chatMessages.append(SentinelChatMessage(role: .assistant, text: reply.reply, generatedImages: storeGeneratedImages(reply.images)))
@@ -1946,16 +1952,21 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     }
 
     private func directWeatherChatReply(for prompt: String) async -> String? {
-        let text = prompt.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        guard text.range(of: #"^(what(?:'s| is) the weather|how(?:'s| is) the weather|current weather|weather now)[?.! ]*$"#, options: .regularExpression) != nil,
-              mobileServiceEnabled("weather"), let location = currentLocation else { return nil }
+        let text = prompt.lowercased().replacingOccurrences(of: "’", with: "'").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.range(of: #"^(?:(?:what(?:'s| is)|how(?:'s| is)) the weather(?: like)?|(?:current|local|today'?s?) weather|weather(?: now)?)[?.! ]*$"#, options: .regularExpression) != nil,
+              mobileServiceEnabled("weather") else { return nil }
         let details: SentinelWeatherAPIResponse
         if let cached = weatherDetails, let updated = weatherUpdatedAt, Date().timeIntervalSince(updated) < 600 {
             details = cached
         } else {
+            guard let location = currentLocation ?? lastKnownLocation else {
+                return "I need your current location to check the weather. Allow location access in iPhone Settings and try again."
+            }
             let query = "\(location.latitude),\(location.longitude)"
             guard let data = try? await cloud.mobileService(path: "/mobile/services/weather", queryItems: [URLQueryItem(name: "q", value: query), URLQueryItem(name: "days", value: "1")]),
-                  let latest = try? JSONDecoder().decode(SentinelWeatherAPIResponse.self, from: data) else { return nil }
+                  let latest = try? JSONDecoder().decode(SentinelWeatherAPIResponse.self, from: data) else {
+                return "I couldn't refresh the weather right now. Open Weather to retry the live forecast."
+            }
             details = latest
             weatherDetails = latest
             weather = SentinelWeather(weatherAPI: latest)

@@ -13,6 +13,7 @@ const project = await readFile(new URL("../SentinelBase.xcodeproj/project.pbxpro
 test("local radar can request WeatherAPI precipitation tiles at phone zoom levels", () => {
   assert.match(root, /overlay\.maximumZ = 20/);
   assert.match(root, /class WeatherRadarTileOverlay/);
+  assert.match(root, /sourceZoom = 6/);
   assert.match(root, /image\.cropping\(to:/);
   assert.match(root, /Rain chance/);
   assert.match(root, /Rain amount/);
@@ -51,7 +52,8 @@ test("paired iPhone chat can use authenticated desktop chat before cloud", () =>
   assert.match(localCompanion, /127\.0\.0\.1:\$\{Number\(process\.env\.PORT\) \|\| 3001\}\/chat/);
   assert.match(localCompanion, /url\.pathname === "\/status"/);
   assert.match(cloud, /LocalChatRequest\(message: localMessage, history: history\)/);
-  assert.match(cloud, /timeout: allowCloudFallback \? 6 : 30/);
+  assert.match(cloud, /path: "\/status", method: "GET", body: nil, timeout: 2/);
+  assert.match(cloud, /path: "\/chat", method: "POST", body: localBody, timeout: 40/);
   assert.ok(cloud.indexOf('localCompanionRequest(path: "/chat"') < cloud.indexOf('path: "/mobile/services/chat"'));
 });
 
@@ -65,6 +67,20 @@ test("keyboard dismisses outside text inputs and chat sends cannot duplicate dur
 test("simple weather chat uses fresh verified weather without a second AI call", () => {
   assert.match(model, /directWeatherChatReply\(for: messageText\)/);
   assert.match(model, /timeIntervalSince\(updated\) < 600/);
+  assert.match(model, /replacingOccurrences\(of: "’", with: "'"\)/);
+  assert.match(model, /directWeatherChatReply\(for: lastUserMessage\.text\)/);
+  assert.match(model, /weather\(\?: now\)\?/);
+  const pattern = model.match(/guard text\.range\(of: #"([^"]+)"#, options: \.regularExpression\)/)?.[1];
+  assert.ok(pattern, "weather fast-path regex exists");
+  const localWeather = new RegExp(pattern);
+  for (const prompt of ["What’s the weather", "Weather?", "What's the weather like?", "Current weather"]) {
+    assert.match(prompt.toLowerCase().replaceAll("’", "'"), localWeather);
+  }
+});
+
+test("a desktop provider limit does not create a second provider request", () => {
+  assert.match(cloud, /never send the same prompt to both/);
+  assert.match(cloud, /request\.timeoutInterval = path == "\/mobile\/services\/chat" \? 40 : 20/);
 });
 
 test("mobile Concierge uses the paired Personal planner and requires review before handoff", () => {

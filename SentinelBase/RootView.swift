@@ -703,7 +703,7 @@ private struct SentinelWeatherDashboard: View {
     private func rainDetails(for date: Date) -> (chance: Int, amount: Double, summary: String)? {
         let hours = app.weatherDetails?.forecast.forecastday.flatMap(\.hour) ?? []
         guard let hour = hours.min(by: { abs(weatherDate($0.time).timeIntervalSince(date)) < abs(weatherDate($1.time).timeIntervalSince(date)) }) else { return nil }
-        let summary = hour.willItRain == 1 || hour.precipMm > 0 ? "WeatherAPI expects rainfall around this time." : "WeatherAPI currently expects no measurable rainfall at your location for this hour."
+        let summary = hour.precipMm > 0 ? "WeatherAPI forecasts measurable rain at your location for this hour." : "No measurable rain is forecast at your location for this hour; the chance of rain is not an amount."
         return (hour.chanceOfRain, hour.precipMm, summary)
     }
     private func previousRadarFrame() { guard let count = app.radarMetadata?.frames.count, count > 0 else { return }; radarFrameIndex = (radarFrameIndex - 1 + count) % count; stopRadarPlayback() }
@@ -789,7 +789,9 @@ private struct RadarTileMap: UIViewRepresentable {
 /// WeatherAPI serves coarse precipitation tiles; overzoom the last useful
 /// source level so MapKit does not request empty high-zoom imagery.
 private final class WeatherRadarTileOverlay: MKTileOverlay {
-    private let sourceZoom = 7
+    // Verified against WeatherAPI's live tiles: level 6 returns PNGs locally,
+    // while levels 7 and above return HTTP 404.
+    private let sourceZoom = 6
 
     override func loadTile(at path: MKTileOverlayPath, result: @escaping (Data?, Error?) -> Void) {
         guard path.z > sourceZoom else { super.loadTile(at: path, result: result); return }
@@ -797,7 +799,7 @@ private final class WeatherRadarTileOverlay: MKTileOverlay {
         let scale = 1 << difference
         let parent = MKTileOverlayPath(x: path.x >> difference, y: path.y >> difference, z: sourceZoom, contentScaleFactor: path.contentScaleFactor)
         URLSession.shared.dataTask(with: url(forTilePath: parent)) { data, _, error in
-            guard let data, let image = UIImage(data: data)?.cgImage else { result(nil, error); return }
+            guard let data, let image = UIImage(data: data)?.cgImage else { result(nil, error ?? URLError(.cannotDecodeContentData)); return }
             let x = min(image.width - 1, Int(Double(path.x % scale) * Double(image.width) / Double(scale)))
             let y = min(image.height - 1, Int(Double(path.y % scale) * Double(image.height) / Double(scale)))
             let width = max(1, min(image.width - x, image.width / scale))

@@ -231,7 +231,7 @@ struct SentinelCloud {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard isSuccess(response) else {
             let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-            throw CompanionBridgeError(detail: value?["error"] as? String ?? "Sentinel Personal could not complete this request.")
+            throw CompanionBridgeError(detail: value?["error"] as? String ?? "Sentinel Personal could not complete this request.", statusCode: (response as? HTTPURLResponse)?.statusCode)
         }
         return data
     }
@@ -265,9 +265,12 @@ struct SentinelCloud {
             localMessage = lastMessage.text
         }
         let localBody = try JSONEncoder().encode(LocalChatRequest(message: localMessage, history: history))
-        // A stalled desktop must not hold an independently connected iPhone for 100 seconds.
-        if let data = try? await localCompanionRequest(path: "/chat", method: "POST", body: localBody, timeout: allowCloudFallback ? 6 : 30),
-           let delivery = AssistantChatResponse.delivery(from: data) {
+        // Probe the bridge before sending a provider request. A healthy desktop
+        // can take longer than six seconds; never send the same prompt to both
+        // provider routes just because the first reply is still in progress.
+        if (try? await localCompanionRequest(path: "/status", method: "GET", body: nil, timeout: 2)) != nil {
+            let data = try await localCompanionRequest(path: "/chat", method: "POST", body: localBody, timeout: 40)
+            guard let delivery = AssistantChatResponse.delivery(from: data) else { throw AssistantChatError.invalidResponse }
             return delivery
         }
 
@@ -296,7 +299,7 @@ struct SentinelCloud {
 
     private func mobileServiceRequest(path: String, body: Data, token: String) async throws -> Data {
         var request = URLRequest(url: endpoint.appending(path: path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))))
-        request.httpMethod = "POST"; request.httpBody = body; request.timeoutInterval = path == "/mobile/services/chat" ? 100 : 20
+        request.httpMethod = "POST"; request.httpBody = body; request.timeoutInterval = path == "/mobile/services/chat" ? 40 : 20
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -375,6 +378,7 @@ struct MobileAccessEnrollment: Decodable { let enabled: Bool; let services: [Str
 enum CompanionConnection: Equatable { case localNetwork, cloudflare }
 private struct CompanionBridgeError: LocalizedError {
     let detail: String
+    let statusCode: Int?
     var errorDescription: String? { detail }
 }
 
