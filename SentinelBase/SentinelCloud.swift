@@ -220,12 +220,12 @@ struct SentinelCloud {
         return data
     }
 
-    private func localCompanionRequest(path: String, method: String, body: Data?) async throws -> Data {
+    private func localCompanionRequest(path: String, method: String, body: Data?, timeout: TimeInterval? = nil) async throws -> Data {
         guard let base = KeychainStore.string(for: "localEndpoint"),
               let token = KeychainStore.string(for: "localToken"),
               let url = companionURL(base: base, path: path) else { throw URLError(.cannotConnectToHost) }
         var request = URLRequest(url: url)
-        request.httpMethod = method; request.httpBody = body; request.timeoutInterval = path == "/chat" || path == "/concierge/plan" ? 100 : path.hasPrefix("/home/") || path.hasPrefix("/mission/") || path == "/media/command" || path == "/devices/scan" ? 25 : 2
+        request.httpMethod = method; request.httpBody = body; request.timeoutInterval = timeout ?? (path == "/chat" || path == "/concierge/plan" ? 100 : path.hasPrefix("/home/") || path.hasPrefix("/mission/") || path == "/media/command" || path == "/devices/scan" ? 25 : 2)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -265,7 +265,8 @@ struct SentinelCloud {
             localMessage = lastMessage.text
         }
         let localBody = try JSONEncoder().encode(LocalChatRequest(message: localMessage, history: history))
-        if let data = try? await localCompanionRequest(path: "/chat", method: "POST", body: localBody),
+        // A stalled desktop must not hold an independently connected iPhone for 100 seconds.
+        if let data = try? await localCompanionRequest(path: "/chat", method: "POST", body: localBody, timeout: allowCloudFallback ? 6 : 30),
            let delivery = AssistantChatResponse.delivery(from: data) {
             return delivery
         }

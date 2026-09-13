@@ -918,6 +918,8 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
             chatDraft = ""
             return
         }
+        isSendingChat = true
+        defer { isSendingChat = false }
         let messageText = prompt.isEmpty ? "Please analyse the attached file." : prompt
         let attachments = chatAttachments
 
@@ -934,15 +936,18 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
 
         chatDraft = ""
         persistChatConversation()
+        if attachments.isEmpty, let weatherReply = await directWeatherChatReply(for: messageText) {
+            chatMessages.append(SentinelChatMessage(role: .assistant, text: weatherReply))
+            if spokenResponses { speakAssistantResponse(weatherReply) }
+            persistChatConversation()
+            return
+        }
         if let instantReply = localChatCapabilityReply(for: messageText), attachments.isEmpty {
             chatMessages.append(SentinelChatMessage(role: .assistant, text: instantReply))
             if spokenResponses { speakAssistantResponse(instantReply) }
             persistChatConversation()
             return
         }
-        isSendingChat = true
-        defer { isSendingChat = false }
-
         do {
             let reply = try await cloud.sendAssistantMessage(
                 messages: Array(chatMessages.suffix(16)),
@@ -1938,6 +1943,27 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
             return "I can chat, speak replies, use Live Talk, generate images, analyse supported attachments, remember conversations, and use your permitted Sentinel weather, navigation and travel services."
         }
         return nil
+    }
+
+    private func directWeatherChatReply(for prompt: String) async -> String? {
+        let text = prompt.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.range(of: #"^(what(?:'s| is) the weather|how(?:'s| is) the weather|current weather|weather now)[?.! ]*$"#, options: .regularExpression) != nil,
+              mobileServiceEnabled("weather"), let location = currentLocation else { return nil }
+        let details: SentinelWeatherAPIResponse
+        if let cached = weatherDetails, let updated = weatherUpdatedAt, Date().timeIntervalSince(updated) < 600 {
+            details = cached
+        } else {
+            let query = "\(location.latitude),\(location.longitude)"
+            guard let data = try? await cloud.mobileService(path: "/mobile/services/weather", queryItems: [URLQueryItem(name: "q", value: query), URLQueryItem(name: "days", value: "1")]),
+                  let latest = try? JSONDecoder().decode(SentinelWeatherAPIResponse.self, from: data) else { return nil }
+            details = latest
+            weatherDetails = latest
+            weather = SentinelWeather(weatherAPI: latest)
+            weatherUpdatedAt = .now
+            persistWeather()
+        }
+        let current = details.current
+        return "In \(details.location.name), it's \(Int(current.tempC.rounded()))°C with \(current.condition.text.lowercased()). Rainfall is \(current.precipMm) mm and wind is \(Int(current.windKph.rounded())) km/h."
     }
 
     private func loadCachedWeather() {
