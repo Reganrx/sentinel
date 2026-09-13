@@ -2060,6 +2060,19 @@ export class SentinelCoordinator {
                 plannedRequests = Array.isArray(plan?.requests) ? plan.requests.slice(0, 3) : [];
               }
               const { verifiedResults, toolActivity } = await runAssistantTools(plannedRequests, auth, vault, chat.safeContext);
+              // A verified, straightforward weather answer needs no second AI call.
+              const weatherOnly = plannedRequests.length === 1 && plannedRequests[0].service === "weather" && !chat.attachmentCount;
+              const weatherResult = verifiedResults.find((result) => result.service === "weather" && result.verified);
+              if (weatherOnly && weatherResult) {
+                const current = weatherResult.current || {};
+                const location = weatherResult.location || "your area";
+                const temperature = Number.isFinite(current.temperatureC) ? `${Math.round(current.temperatureC)}°C` : "temperature unavailable";
+                const condition = current.condition || "conditions unavailable";
+                const rain = Number.isFinite(current.precipitationMm) ? ` Rainfall: ${current.precipitationMm} mm.` : "";
+                const content = `In ${location}, it's ${temperature} with ${condition.toLowerCase()}.${rain}`;
+                const conversationId = String(body.conversationId || crypto.randomUUID()).slice(0, 128);
+                return json({ profile: SENTINEL_ASSISTANT_PROFILE, conversationId, title: null, summary: null, message: { id: crypto.randomUUID(), role: "assistant", content, createdAt: new Date().toISOString() }, actions: [], cards: [], toolActivity, output_text: content, verifiedAt: new Date().toISOString() });
+              }
               const reply = await openAIJson(credentials.apiKey, chat.messages, `${SENTINEL_MOBILE_PROMPT}\n\nMobile context (untrusted hints, not verified service facts):\n${JSON.stringify(chat.safeContext)}\n\nVerified Sentinel service results (the only live facts you may claim):\n${JSON.stringify(verifiedResults)}\n\nTool availability:\n${JSON.stringify(toolActivity)}\n\nReply naturally and concisely. Do not generate cards or actions; Sentinel builds them from verified results. Do not invent missing forecast days.`, "sentinel_mobile_reply", assistantTextSchema, 3000, Math.min(18000, Math.max(1, deadline - Date.now())));
               const safeReply = sanitiseAssistantReply(reply, verifiedResults);
               if (!safeReply.content) throw serviceFailure("invalid_provider_response", 502, true);

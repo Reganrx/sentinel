@@ -34,6 +34,7 @@ struct RootView: View {
         .onAppear { live.onVerifiedTool = { service, result in app.applyVerifiedLiveTool(service: service, result: result) } }
         .onChange(of: live.isActive) { _, active in if active { dj.stopAll() } }
         .overlay { if app.isLocked { SentinelLockView() } }
+        .background(KeyboardDismissInstaller().frame(width: 0, height: 0))
         .alert("Allow independent mobile service access?", isPresented: $app.showMobileAccessConsent) { Button("Not now", role: .cancel) {}; Button("Allow") { Task { await app.enrolMobileAccess() } } } message: { Text("Approved services use the secure Sentinel relay. API keys are never copied to this iPhone.") }
     }
     private var liveIcon: String { switch live.state { case .connecting, .thinking: "waveform.path.ecg"; case .speaking: "waveform.circle.fill"; case .listening, .muted: "waveform.badge.mic"; case .failed: "exclamationmark.triangle.fill"; default: "waveform.badge.mic" } }
@@ -754,9 +755,9 @@ private struct RadarTileMap: UIViewRepresentable {
             map.removeOverlays(map.overlays)
             context.coordinator.tileTemplate = tileTemplate
             if let tileTemplate {
-                let overlay = MKTileOverlay(urlTemplate: tileTemplate)
+                let overlay = WeatherRadarTileOverlay(urlTemplate: tileTemplate)
                 overlay.minimumZ = 0
-                overlay.maximumZ = 12
+                overlay.maximumZ = 20
                 overlay.tileSize = CGSize(width: 256, height: 256)
                 overlay.canReplaceMapContent = false
                 map.addOverlay(overlay, level: .aboveLabels)
@@ -782,6 +783,77 @@ private struct RadarTileMap: UIViewRepresentable {
             if let tileOverlay = overlay as? MKTileOverlay { let renderer = MKTileOverlayRenderer(tileOverlay: tileOverlay); renderer.alpha = opacity; return renderer }
             return MKOverlayRenderer(overlay: overlay)
         }
+    }
+}
+
+/// WeatherAPI serves coarse precipitation tiles; overzoom the last useful
+/// source level so MapKit does not request empty high-zoom imagery.
+private final class WeatherRadarTileOverlay: MKTileOverlay {
+    private let sourceZoom = 7
+
+    override func loadTile(at path: MKTileOverlayPath, result: @escaping (Data?, Error?) -> Void) {
+        guard path.z > sourceZoom else { super.loadTile(at: path, result: result); return }
+        let difference = path.z - sourceZoom
+        let scale = 1 << difference
+        let parent = MKTileOverlayPath(x: path.x >> difference, y: path.y >> difference, z: sourceZoom, contentScaleFactor: path.contentScaleFactor)
+        URLSession.shared.dataTask(with: url(for: parent)) { data, _, error in
+            guard let data, let image = UIImage(data: data)?.cgImage else { result(nil, error); return }
+            let x = min(image.width - 1, Int(Double(path.x % scale) * Double(image.width) / Double(scale)))
+            let y = min(image.height - 1, Int(Double(path.y % scale) * Double(image.height) / Double(scale)))
+            let width = max(1, min(image.width - x, image.width / scale))
+            let height = max(1, min(image.height - y, image.height / scale))
+            guard let cropped = image.cropping(to: CGRect(x: x, y: y, width: width, height: height)) else {
+                result(nil, error); return
+            }
+            let tile = UIGraphicsImageRenderer(size: CGSize(width: 256, height: 256)).pngData { _ in
+                UIImage(cgImage: cropped).draw(in: CGRect(x: 0, y: 0, width: 256, height: 256))
+            }
+            result(tile, nil)
+        }.resume()
+    }
+}
+
+/// Installs one non-blocking window gesture, leaving taps in text inputs alone.
+private struct KeyboardDismissInstaller: UIViewRepresentable {
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        DispatchQueue.main.async { context.coordinator.install(on: view.window) }
+        return view
+    }
+    func updateUIView(_ view: UIView, context: Context) {
+        DispatchQueue.main.async { context.coordinator.install(on: view.window) }
+    }
+    static func dismantleUIView(_ view: UIView, coordinator: Coordinator) { coordinator.remove() }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        private weak var window: UIWindow?
+        private var recognizer: UITapGestureRecognizer?
+
+        func install(on window: UIWindow?) {
+            guard let window, self.window !== window else { return }
+            remove()
+            let gesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+            gesture.cancelsTouchesInView = false
+            gesture.delegate = self
+            window.addGestureRecognizer(gesture)
+            self.window = window
+            recognizer = gesture
+        }
+        func remove() {
+            if let recognizer { window?.removeGestureRecognizer(recognizer) }
+            recognizer = nil
+            window = nil
+        }
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            var view = touch.view
+            while let current = view {
+                if current is UITextField || current is UITextView || current is UISearchBar { return false }
+                view = current.superview
+            }
+            return true
+        }
+        @objc private func dismissKeyboard() { window?.endEditing(true) }
     }
 }
 

@@ -11,7 +11,9 @@ const dj = await readFile(new URL("../SentinelBase/MobileDJManager.swift", impor
 const project = await readFile(new URL("../SentinelBase.xcodeproj/project.pbxproj", import.meta.url), "utf8");
 
 test("local radar can request WeatherAPI precipitation tiles at phone zoom levels", () => {
-  assert.match(root, /overlay\.maximumZ = 12/);
+  assert.match(root, /overlay\.maximumZ = 20/);
+  assert.match(root, /class WeatherRadarTileOverlay/);
+  assert.match(root, /image\.cropping\(to:/);
   assert.match(root, /Rain chance/);
   assert.match(root, /Rain amount/);
 });
@@ -49,8 +51,20 @@ test("paired iPhone chat can use authenticated desktop chat before cloud", () =>
   assert.match(localCompanion, /127\.0\.0\.1:\$\{Number\(process\.env\.PORT\) \|\| 3001\}\/chat/);
   assert.match(localCompanion, /url\.pathname === "\/status"/);
   assert.match(cloud, /LocalChatRequest\(message: localMessage, history: history\)/);
-  assert.match(cloud, /request\.timeoutInterval = path == "\/chat" \|\| path == "\/concierge\/plan" \? 100/);
+  assert.match(cloud, /timeout: allowCloudFallback \? 6 : 30/);
   assert.ok(cloud.indexOf('localCompanionRequest(path: "/chat"') < cloud.indexOf('path: "/mobile/services/chat"'));
+});
+
+test("keyboard dismisses outside text inputs and chat sends cannot duplicate during location lookup", () => {
+  assert.match(root, /KeyboardDismissInstaller/);
+  assert.match(root, /window\?\.endEditing\(true\)/);
+  assert.match(root, /current is UITextField \|\| current is UITextView/);
+  assert.ok(model.indexOf("isSendingChat = true", model.indexOf("func submitAssistantPrompt")) < model.indexOf("ensureCurrentLocationForChat()", model.indexOf("func submitAssistantPrompt")));
+});
+
+test("simple weather chat uses fresh verified weather without a second AI call", () => {
+  assert.match(model, /directWeatherChatReply\(for: messageText\)/);
+  assert.match(model, /timeIntervalSince\(updated\) < 600/);
 });
 
 test("mobile Concierge uses the paired Personal planner and requires review before handoff", () => {
