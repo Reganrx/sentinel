@@ -796,7 +796,7 @@ private final class WeatherRadarTileOverlay: MKTileOverlay {
         let difference = path.z - sourceZoom
         let scale = 1 << difference
         let parent = MKTileOverlayPath(x: path.x >> difference, y: path.y >> difference, z: sourceZoom, contentScaleFactor: path.contentScaleFactor)
-        URLSession.shared.dataTask(with: url(for: parent)) { data, _, error in
+        URLSession.shared.dataTask(with: url(forTilePath: parent)) { data, _, error in
             guard let data, let image = UIImage(data: data)?.cgImage else { result(nil, error); return }
             let x = min(image.width - 1, Int(Double(path.x % scale) * Double(image.width) / Double(scale)))
             let y = min(image.height - 1, Int(Double(path.y % scale) * Double(image.height) / Double(scale)))
