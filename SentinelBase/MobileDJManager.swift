@@ -89,6 +89,16 @@ final class MobileDJManager: ObservableObject {
         } catch { status = "That audio file could not be decoded on iPhone: \(error.localizedDescription)" }
     }
 
+    func remove(_ track: MobileDJTrack) {
+        if deckATrackID == track.id { playerA?.stop(); playerA = nil; deckATrackID = nil; isPlayingA = false; progressA = 0 }
+        if deckBTrackID == track.id { playerB?.stop(); playerB = nil; deckBTrackID = nil; isPlayingB = false; progressB = 0 }
+        do {
+            try FileManager.default.removeItem(at: track.url)
+            reloadTracks()
+            status = "\(track.title) removed from the local DJ library."
+        } catch { status = "Could not remove \(track.title): \(error.localizedDescription)" }
+    }
+
     func playPause(_ deck: String) {
         guard let player = deck == "A" ? playerA : playerB else { status = "Load a track onto Deck \(deck) first."; return }
         if player.isPlaying { player.pause() }

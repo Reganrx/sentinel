@@ -77,14 +77,16 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
     if (!hasActiveDeveloperSession()) return reply(res, 403, { error: "Unlock Developer Mode in Sentinel Personal to run Device Scanner." });
     return reply(res, 200, await scanDevices());
   }
-  const missionReads: Record<string, string> = {
+  const personalReads: Record<string, string> = {
     "/mission/integrations": "/automation/integrations",
     "/mission/govee": "/automation/govee/devices",
     "/mission/ring/devices": "/automation/ring/devices",
     "/mission/ring/events": "/automation/ring/events",
+    "/system/vitals": "/device",
+    "/system/diagnostics": "/system/diagnostics",
   };
-  if (req.method === "GET" && Object.hasOwn(missionReads, url.pathname)) {
-    const upstream = await fetch(`http://127.0.0.1:${Number(process.env.PORT) || 3001}${missionReads[url.pathname]}`, { signal: AbortSignal.timeout(20_000) });
+  if (req.method === "GET" && Object.hasOwn(personalReads, url.pathname)) {
+    const upstream = await fetch(`http://127.0.0.1:${Number(process.env.PORT) || 3001}${personalReads[url.pathname]}`, { signal: AbortSignal.timeout(20_000) });
     return reply(res, upstream.status, await upstream.json());
   }
   const cameraMatch = url.pathname.match(/^\/mission\/ring\/devices\/([^/]+)\/snapshot$/);
