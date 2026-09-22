@@ -953,6 +953,12 @@ private struct SentinelWeatherDashboard: View {
     @State private var radarWideView = false
     @State private var radarPlaybackTask: Task<Void, Never>?
     private var accent: Color { Color(uiColor: app.accentColor) }
+    private var heroMetrics: [(String, String)] {
+        let temperature = app.weather.map { "\(Int($0.current.temperature2m))°" } ?? "—"
+        let rain = app.weatherDetails.map { String(format: "%.1f mm", $0.current.precipMm) } ?? "—"
+        let updated = app.weatherUpdatedAt?.formatted(date: .omitted, time: .shortened) ?? "Pending"
+        return [("Now", temperature), ("Rain", rain), ("Updated", updated)]
+    }
     var body: some View {
         ZStack {
             VStack(alignment: .leading, spacing: 16) {
@@ -961,7 +967,7 @@ private struct SentinelWeatherDashboard: View {
                     title: app.weatherDetails?.location.name ?? "Local forecast",
                     detail: app.weather.map { "\($0.conditionName) with verified hourly detail, practical guidance and WeatherAPI radar." } ?? "Allow location access to load your verified local forecast.",
                     symbol: app.weather?.symbol ?? "cloud.sun.fill",
-                    metrics: [("Now", app.weather.map { "\(Int($0.current.temperature2m))°" } ?? "—"), ("Rain", app.weatherDetails.map { "\($0.current.precipMm, specifier: "%.1f") mm" } ?? "—"), ("Updated", app.weatherUpdatedAt?.formatted(date: .omitted, time: .shortened) ?? "Pending")]
+                    metrics: heroMetrics
                 )
                 ModuleTabs(selection: $section, items: [("Current & Hourly", "cloud.sun.fill"), ("Weekly", "calendar"), ("Radar", "map.fill")])
                 if section == 0 { currentHourly } else if section == 1 { weekly } else { radar }
