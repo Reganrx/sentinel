@@ -35,14 +35,14 @@ final class LiveTalkManager: NSObject, ObservableObject {
 
     deinit { if let backgroundObserver { NotificationCenter.default.removeObserver(backgroundObserver) } }
 
-    func begin(conversationId: UUID, enabledServices: [String]) async {
+    func begin(conversationId: UUID, enabledServices: [String], context: [String: Any]) async {
         guard !isActive else { return }
         guard let token = KeychainStore.string(for: "mobileServiceAccessToken") else { state = .failed; status = "Mobile access has expired."; return }
         state = .connecting; status = "Creating secure live session…"
         do {
             let url = URL(string: "https://sentinel-relay.reganbelson.workers.dev/mobile/services/live-chat/session")!
             var request = URLRequest(url: url); request.httpMethod = "POST"; request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization"); request.setValue("application/json", forHTTPHeaderField: "Content-Type"); request.setValue("application/json", forHTTPHeaderField: "Accept")
-            request.httpBody = try JSONSerialization.data(withJSONObject: ["platform":"ios", "conversationId":conversationId.uuidString, "locale":"en-GB", "voice":"cedar", "enabledServices":enabledServices])
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["platform":"ios", "conversationId":conversationId.uuidString, "locale":"en-GB", "voice":"cedar", "enabledServices":enabledServices, "context":context])
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { state = .failed; status = "Live session could not be started."; return }
             let session = try JSONDecoder().decode(Session.self, from: data)
@@ -53,7 +53,7 @@ final class LiveTalkManager: NSObject, ObservableObject {
     }
 
     func end() { channel?.close(); peer?.close(); channel = nil; peer = nil; microphoneTrack = nil; assistantAudioTrack = nil; ephemeralToken = nil; sessionID = nil; try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation); state = .ended; status = "Conversation ended" }
-    func open(conversationId: UUID, enabledServices: [String]) { isPanelPresented = true; guard !isActive else { return }; Task { await begin(conversationId: conversationId, enabledServices: enabledServices) } }
+    func open(conversationId: UUID, enabledServices: [String], context: [String: Any]) { isPanelPresented = true; guard !isActive else { return }; Task { await begin(conversationId: conversationId, enabledServices: enabledServices, context: context) } }
     func minimise() { isPanelPresented = false }
     func suspendForBackground() { guard isActive else { return }; mutedBeforeBackground = microphoneTrack?.isEnabled ?? false; microphoneTrack?.isEnabled = false; status = "Paused while Sentinel is in the background" }
     func resumeAfterForeground() { guard isActive else { return }; if mutedBeforeBackground { microphoneTrack?.isEnabled = true; mutedBeforeBackground = false; state = .listening; status = "Listening" } }

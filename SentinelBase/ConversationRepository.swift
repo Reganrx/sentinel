@@ -33,3 +33,21 @@ final class ConversationRepository {
     }
     func removeAll() { try? FileManager.default.removeItem(at: fileURL) }
 }
+
+/// User-approved memory storage uses the same iOS data protection as conversations.
+/// Memory text is never written to logs or included in credentials/configuration.
+final class MemoryRepository {
+    private let fileURL: URL
+    init(fileManager: FileManager = .default) {
+        let directory = (try? fileManager.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)) ?? fileManager.temporaryDirectory
+        let sentinelDirectory = directory.appendingPathComponent("Sentinel", isDirectory: true)
+        try? fileManager.createDirectory(at: sentinelDirectory, withIntermediateDirectories: true)
+        fileURL = sentinelDirectory.appendingPathComponent("memories.json")
+    }
+    func load() -> [SentinelMemory] { guard let data = try? Data(contentsOf: fileURL) else { return [] }; return (try? JSONDecoder().decode([SentinelMemory].self, from: data)) ?? [] }
+    func save(_ memories: [SentinelMemory]) {
+        guard let data = try? JSONEncoder().encode(memories) else { return }
+        do { try data.write(to: fileURL, options: [.atomic]); try FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: fileURL.path) } catch { /* Memory persistence is best-effort; never log private memory text. */ }
+    }
+    func removeAll() { try? FileManager.default.removeItem(at: fileURL) }
+}

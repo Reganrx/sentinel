@@ -32,6 +32,7 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     @Published private(set) var chatMessages: [SentinelChatMessage] = []
     @Published private(set) var conversationID: UUID
     @Published private(set) var conversations: [SentinelConversation] = []
+    @Published private(set) var memories: [SentinelMemory] = []
     @Published private(set) var conversationTitle = "New conversation"
     @Published private(set) var isSendingChat = false
     @Published private(set) var chatError: String?
@@ -117,6 +118,8 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     @Published private(set) var mobileServicesCheckedAt: Date?
     @Published private(set) var isCheckingMobileServices = false
     @Published private(set) var crossDeviceTestStatus = "Not tested yet"
+    @Published private(set) var commandCentreStatus = "Ready"
+    @Published private(set) var isRefreshingCommandCentre = false
     @Published private(set) var desktopActionStatus = "No desktop request sent."
     @Published private(set) var desktopActionCommandID: String?
     @Published var conciergeRequest = ""
@@ -146,6 +149,8 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     @Published private(set) var missionDataStatus = "Connect to Sentinel Personal to load integrations and devices."
     @Published private(set) var goveeCommandStatus = "Choose an explicit device action."
     @Published private(set) var changingGoveeID: String?
+    @Published private(set) var sceneStatus = "Choose a scene to control verified Home devices."
+    @Published private(set) var isRunningScene = false
 
     private let cloud = SentinelCloud()
     private var reconnectTask: Task<Void, Never>?
@@ -162,6 +167,7 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     private var backgroundedAt: Date?
     private let voiceInput = SentinelVoiceInput()
     private let conversationRepository = ConversationRepository()
+    private let memoryRepository = MemoryRepository()
     private let speechSynthesizer = AVSpeechSynthesizer()
 
     override init() {
@@ -228,6 +234,11 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
             UserDefaults.standard.set(Array(initialVisiblePageNames), forKey: "sentinelVisiblePages")
             UserDefaults.standard.set(true, forKey: "sentinelScannerMigration1")
         }
+        if !UserDefaults.standard.bool(forKey: "sentinelMemoryMigration1") {
+            initialVisiblePageNames.insert(SentinelPage.memory.rawValue)
+            UserDefaults.standard.set(Array(initialVisiblePageNames), forKey: "sentinelVisiblePages")
+            UserDefaults.standard.set(true, forKey: "sentinelMemoryMigration1")
+        }
 
         visiblePageNames = initialVisiblePageNames
 
@@ -287,6 +298,7 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
         loadSavedPlaces()
         loadCachedWeather()
         loadChatConversation()
+        loadMemories()
 
         travelReadiness = Set(
             UserDefaults.standard.stringArray(
@@ -470,6 +482,52 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
             lastCompanionConnection = nil
         }
     }
+
+    var dailyBriefing: String {
+        var parts: [String] = []
+        if let weather {
+            parts.append("It is \(Int(weather.current.temperature2m)) degrees with \(weather.conditionName.lowercased()).")
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_GB_POSIX")
+            formatter.calendar = Calendar(identifier: .gregorian)
+            formatter.timeZone = .current
+            formatter.dateFormat = "yyyy-MM-dd HH:mm"
+            let currentHour = Calendar.current.dateInterval(of: .hour, for: .now)?.start ?? .now
+            let upcoming = zip(weather.hourly.time, weather.hourly.precipitationProbability)
+                .filter { formatter.date(from: $0.0).map { $0 >= currentHour } ?? false }
+                .prefix(6)
+                .map { $0.1 }
+                .max() ?? 0
+            if upcoming >= 50 { parts.append("Rain chance reaches \(upcoming)% in the near forecast.") }
+        } else { parts.append("Local weather has not been loaded yet.") }
+        if let trip = trips.filter({ $0.date >= Calendar.current.startOfDay(for: .now) }).min(by: { $0.date < $1.date }) {
+            let days = max(0, Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: .now), to: Calendar.current.startOfDay(for: trip.date)).day ?? 0)
+            parts.append("\(trip.title) is in \(days) day\(days == 1 ? "" : "s").")
+        }
+        if let flight = personalFlights.first {
+            parts.append("Saved flight \(flight.number) runs from \(flight.departure) to \(flight.arrival).")
+        } else if let flight = flights.first {
+            parts.append("Saved flight \(flight.number) runs from \(flight.departure) to \(flight.arrival).")
+        }
+        parts.append(companionPaired ? "Sentinel Personal is paired." : "Sentinel Personal is not currently paired.")
+        if unreadActivityCount > 0 { parts.append("You have \(unreadActivityCount) unread Sentinel update\(unreadActivityCount == 1 ? "" : "s").") }
+        return parts.joined(separator: " ")
+    }
+
+    func refreshCommandCentre() async {
+        guard !isRefreshingCommandCentre else { return }
+        isRefreshingCommandCentre = true
+        commandCentreStatus = "Refreshing your briefing…"
+        defer { isRefreshingCommandCentre = false }
+        refreshLocalSystem()
+        await refreshCompanionConnection()
+        await refreshMobileServiceStatus()
+        if companionPaired { await refreshPersonalTravel() }
+        refreshWeather()
+        commandCentreStatus = "Core sources refreshed at \(Date().formatted(date: .omitted, time: .shortened)); weather updates when iOS returns your location."
+    }
+
+    func speakDailyBriefing() { speakAssistantResponse(dailyBriefing) }
 
     func refreshMobileServiceStatus() async {
         guard KeychainStore.string(for: "mobileServiceAccessToken") != nil else {
@@ -1010,6 +1068,40 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     func deleteConversation(_ conversation: SentinelConversation) { conversations.removeAll { $0.id == conversation.id }; conversationRepository.save(conversations); if conversation.id == conversationID { newConversation() } }
     func deleteAllConversations() { conversations = []; conversationRepository.removeAll(); newConversation() }
 
+    func addMemory(title: String, content: String, category: SentinelMemory.Category) {
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanTitle.isEmpty, !cleanContent.isEmpty else { return }
+        memories.removeAll { $0.title.caseInsensitiveCompare(cleanTitle) == .orderedSame && $0.content == cleanContent }
+        memories.insert(.init(title: String(cleanTitle.prefix(80)), content: String(cleanContent.prefix(1200)), category: category), at: 0)
+        if memories.count > 100 { memories.removeLast(memories.count - 100) }
+        persistMemories()
+    }
+
+    func rememberLatestExchange() {
+        guard let userIndex = chatMessages.lastIndex(where: { $0.role == .user }) else { return }
+        let user = chatMessages[userIndex]
+        let assistant = chatMessages.dropFirst(userIndex + 1).first(where: { $0.role == .assistant })?.text ?? ""
+        addMemory(title: String(user.text.prefix(60)), content: assistant.isEmpty ? user.text : "Request: \(user.text)\nSentinel: \(assistant)", category: .conversation)
+    }
+
+    func setMemoryEnabled(_ memory: SentinelMemory, enabled: Bool) {
+        guard let index = memories.firstIndex(where: { $0.id == memory.id }) else { return }
+        memories[index].enabled = enabled
+        memories[index].updatedAt = .now
+        persistMemories()
+    }
+
+    func deleteMemory(_ memory: SentinelMemory) {
+        memories.removeAll { $0.id == memory.id }
+        persistMemories()
+    }
+
+    func deleteAllMemories() {
+        memories.removeAll()
+        memoryRepository.removeAll()
+    }
+
     func addChatAttachment(data: Data, name: String, mimeType: String) -> String? {
         let supported = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf", "text/plain", "text/markdown", "text/csv", "application/json"]
         guard supported.contains(mimeType) else { return "This file type is not supported in Sentinel AI chat." }
@@ -1309,6 +1401,59 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
             try await cloud.controlPersonalGovee(device, control: control)
             goveeCommandStatus = "\(device.name) command accepted by Personal. Refresh the provider state to verify the device."
         } catch { goveeCommandStatus = "Could not change \(device.name): \(error.localizedDescription)" }
+    }
+
+    func runScene(_ scene: SentinelMobileScene) async {
+        guard !isRunningScene else { return }
+        isRunningScene = true
+        sceneStatus = "Running \(scene.rawValue)…"
+        defer { isRunningScene = false }
+
+        do {
+            let lights = try await cloud.personalLights()
+            let goveeDevices = (try? await cloud.personalGoveeDevices())?.filter(\.controllable) ?? []
+            guard !lights.isEmpty || !goveeDevices.isEmpty else {
+                sceneStatus = "No controllable Home devices are available from Personal."
+                return
+            }
+
+            var changed = 0
+            var failed = 0
+            for light in lights {
+                do {
+                    try await cloud.setPersonalLight(light, on: scene.turnOn)
+                    if let brightness = scene.brightness, light.supportsBrightness == true {
+                        try await cloud.setPersonalLightBrightness(light, brightness: brightness)
+                    }
+                    changed += 1
+                } catch { failed += 1 }
+            }
+            for device in goveeDevices {
+                do {
+                    try await cloud.controlPersonalGovee(
+                        device,
+                        control: PersonalGoveeControl(
+                            on: scene.turnOn,
+                            brightness: scene.turnOn && device.supportsBrightness ? scene.brightness : nil
+                        )
+                    )
+                    changed += 1
+                } catch { failed += 1 }
+            }
+
+            personalLights = (try? await cloud.personalLights()) ?? lights
+            personalGoveeDevices = (try? await cloud.personalGoveeDevices()) ?? goveeDevices
+            sceneStatus = failed == 0
+                ? "\(scene.rawValue) applied to \(changed) device\(changed == 1 ? "" : "s")."
+                : "\(scene.rawValue) changed \(changed) device\(changed == 1 ? "" : "s"); \(failed) could not be changed."
+            recordActivity(
+                "Scene completed",
+                detail: sceneStatus,
+                symbol: scene.symbol
+            )
+        } catch {
+            sceneStatus = "\(scene.rawValue) could not run: \(error.localizedDescription)"
+        }
     }
 
     func refreshSecurity() async {
@@ -1840,6 +1985,21 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     private func loadSavedPlaces() { guard let data = UserDefaults.standard.data(forKey: "sentinelSavedPlaces"), let saved = try? JSONDecoder().decode([SentinelSavedPlace].self, from: data) else { return }; savedPlaces = saved }
     private func persistSavedPlaces() { if let data = try? JSONEncoder().encode(savedPlaces) { UserDefaults.standard.set(data, forKey: "sentinelSavedPlaces") } }
 
+    private func loadMemories() {
+        let saved = memoryRepository.load()
+        if !saved.isEmpty {
+            memories = saved.sorted { $0.updatedAt > $1.updatedAt }
+            return
+        }
+        guard let legacyData = UserDefaults.standard.data(forKey: "sentinelMobileMemories"),
+              let legacy = try? JSONDecoder().decode([SentinelMemory].self, from: legacyData) else { return }
+        memories = legacy.sorted { $0.updatedAt > $1.updatedAt }
+        memoryRepository.save(memories)
+        UserDefaults.standard.removeObject(forKey: "sentinelMobileMemories")
+    }
+
+    private func persistMemories() { memoryRepository.save(memories) }
+
     private var mobileChatAccessEnabled: Bool {
         enabledMobileServices.contains { $0.lowercased() == "chat" || $0.lowercased() == "ai chat" || $0.lowercased() == "ai" }
             && KeychainStore.string(for: "mobileServiceAccessToken") != nil
@@ -1885,7 +2045,30 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     private var chatContext: MobileChatContext {
         let capabilities = enabledMobileServices.union(["companion", "file-sharing"]).sorted()
         let location = currentLocation.map { MobileChatLocation(latitude: $0.latitude, longitude: $0.longitude) }
-        return MobileChatContext(platform: "ios", appVersion: nativeVersion, contentVersion: contentVersion, currentPage: selected.rawValue.lowercased(), enabledServices: enabledMobileServices.sorted(), companionOnline: companionPaired, weatherSummary: weather.map { "\(Int($0.current.temperature2m))° \($0.conditionName)" }, weatherLocation: weatherDetails?.location.name, selectedDestination: mapSearch.isEmpty ? trips.first?.title : mapSearch, selectedFlight: flightStatus?.flight?.iata ?? flights.first?.number, localTime: ISO8601DateFormatter().string(from: .now), locale: "en-GB", capabilities: capabilities, location: location)
+        let approvedMemories = memories.filter(\.enabled).prefix(12).map { "[\($0.category.rawValue)] \($0.title): \($0.content)" }
+        return MobileChatContext(platform: "ios", appVersion: nativeVersion, contentVersion: contentVersion, currentPage: selected.rawValue.lowercased(), enabledServices: enabledMobileServices.sorted(), companionOnline: companionPaired, weatherSummary: weather.map { "\(Int($0.current.temperature2m))° \($0.conditionName)" }, weatherLocation: weatherDetails?.location.name, selectedDestination: mapSearch.isEmpty ? trips.first?.title : mapSearch, selectedFlight: flightStatus?.flight?.iata ?? flights.first?.number, localTime: ISO8601DateFormatter().string(from: .now), locale: "en-GB", capabilities: capabilities, memories: approvedMemories, location: location)
+    }
+
+    var liveTalkContext: [String: Any] {
+        let context = chatContext
+        var value: [String: Any] = [
+            "platform": context.platform,
+            "appVersion": context.appVersion,
+            "contentVersion": context.contentVersion,
+            "currentPage": context.currentPage,
+            "enabledServices": context.enabledServices,
+            "companionOnline": context.companionOnline,
+            "localTime": context.localTime,
+            "locale": context.locale,
+            "capabilities": context.capabilities,
+            "memories": context.memories,
+        ]
+        if let summary = context.weatherSummary { value["weatherSummary"] = summary }
+        if let weatherLocation = context.weatherLocation { value["weatherLocation"] = weatherLocation }
+        if let destination = context.selectedDestination { value["selectedDestination"] = destination }
+        if let flight = context.selectedFlight { value["selectedFlight"] = flight }
+        if let location = context.location { value["location"] = ["latitude": location.latitude, "longitude": location.longitude] }
+        return value
     }
 
     private func ensureCurrentLocationForChat() async -> CLLocationCoordinate2D? {
@@ -2496,6 +2679,24 @@ enum SentinelChatMode: String, CaseIterable, Identifiable {
     }
 }
 
+struct SentinelMemory: Identifiable, Codable {
+    enum Category: String, CaseIterable, Codable, Identifiable {
+        case profile = "Profile", preference = "Preference", project = "Project", conversation = "Conversation", general = "General"
+        var id: String { rawValue }
+        var symbol: String { switch self { case .profile: "person.crop.circle"; case .preference: "heart.fill"; case .project: "folder.fill"; case .conversation: "message.fill"; case .general: "brain.head.profile" } }
+    }
+    let id: UUID
+    var title: String
+    var content: String
+    var category: Category
+    var enabled: Bool
+    let createdAt: Date
+    var updatedAt: Date
+    init(id: UUID = UUID(), title: String, content: String, category: Category, enabled: Bool = true, createdAt: Date = .now, updatedAt: Date = .now) {
+        self.id = id; self.title = title; self.content = content; self.category = category; self.enabled = enabled; self.createdAt = createdAt; self.updatedAt = updatedAt
+    }
+}
+
 struct SentinelChatAttachment: Identifiable, Codable {
     let id: UUID
     let name: String
@@ -2616,6 +2817,7 @@ enum SentinelPage: String, CaseIterable, Identifiable {
     case media = "Media"
     case scanner = "Device Scanner"
     case missionControl = "Mission Control"
+    case memory = "Memory"
     case notifications = "Notifications"
     case settings = "Settings"
     case system = "System"
@@ -2630,6 +2832,7 @@ enum SentinelPage: String, CaseIterable, Identifiable {
         .media,
         .scanner,
         .missionControl,
+        .memory,
         .notifications,
         .settings,
         .system
@@ -2659,6 +2862,8 @@ enum SentinelPage: String, CaseIterable, Identifiable {
             "network"
         case .missionControl:
             "shield.lefthalf.filled"
+        case .memory:
+            "brain.head.profile"
         case .notifications:
             "bell.fill"
         case .settings:
@@ -2819,6 +3024,40 @@ struct PersonalGoveeDevice: Decodable, Identifiable {
     let controllable: Bool
     let supportsBrightness: Bool
     let supportsColour: Bool
+}
+
+enum SentinelMobileScene: String, CaseIterable, Identifiable {
+    case welcomeHome = "Welcome Home"
+    case focus = "Focus"
+    case movie = "Movie"
+    case goodNight = "Good Night"
+
+    var id: String { rawValue }
+    var turnOn: Bool { self != .goodNight }
+    var brightness: Int? {
+        switch self {
+        case .welcomeHome: 70
+        case .focus: 100
+        case .movie: 20
+        case .goodNight: nil
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .welcomeHome: "house.lodge.fill"
+        case .focus: "scope"
+        case .movie: "film.fill"
+        case .goodNight: "moon.stars.fill"
+        }
+    }
+    var detail: String {
+        switch self {
+        case .welcomeHome: "Switch connected lights on at 70%."
+        case .focus: "Use full brightness for working."
+        case .movie: "Dim connected lights to 20%."
+        case .goodNight: "Switch connected lights off."
+        }
+    }
 }
 
 struct PersonalGoveeControl: Encodable {

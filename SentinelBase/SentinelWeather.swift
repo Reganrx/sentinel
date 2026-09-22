@@ -87,9 +87,33 @@ struct SentinelWeatherAPIResponse: Decodable {
     }
     struct ForecastDay: Decodable { let date: String; let day: Day; let hour: [Hour] }
     struct Forecast: Decodable { let forecastday: [ForecastDay] }
+    struct Alert: Decodable, Identifiable {
+        let headline: String?
+        let msgtype: String?
+        let severity: String?
+        let urgency: String?
+        let areas: String?
+        let category: String?
+        let certainty: String?
+        let event: String?
+        let note: String?
+        let effective: String?
+        let expires: String?
+        let desc: String?
+        let instruction: String?
+        var id: String { "\(event ?? headline ?? "Weather alert")|\(effective ?? expires ?? "active")" }
+        var title: String {
+            for value in [event, headline] {
+                if let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return value }
+            }
+            return "Weather alert"
+        }
+    }
+    struct Alerts: Decodable { let alert: [Alert] }
     let location: Location
     let current: Current
     let forecast: Forecast
+    let alerts: Alerts?
 }
 
 struct SentinelRadarMetadata: Codable {
