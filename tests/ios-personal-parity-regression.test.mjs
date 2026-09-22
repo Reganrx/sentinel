@@ -8,6 +8,8 @@ const cloud = await readFile(new URL("../SentinelBase/SentinelCloud.swift", impo
 const weather = await readFile(new URL("../SentinelBase/SentinelWeather.swift", import.meta.url), "utf8");
 const live = await readFile(new URL("../SentinelBase/LiveTalkManager.swift", import.meta.url), "utf8");
 const repository = await readFile(new URL("../SentinelBase/ConversationRepository.swift", import.meta.url), "utf8");
+const dj = await readFile(new URL("../SentinelBase/MobileDJManager.swift", import.meta.url), "utf8");
+const companion = await readFile(new URL("../server/automation/companionLocal.ts", import.meta.url), "utf8");
 const worker = await readFile(new URL("../cloudflare-relay/worker.js", import.meta.url), "utf8");
 
 test("mobile has a user-controlled persistent Memory Manager", () => {
@@ -73,4 +75,81 @@ test("Home provides an operational daily briefing without adding the Personal De
   assert.match(root, /app\.speakDailyBriefing\(\)/);
   const pages = model.slice(model.indexOf("enum SentinelPage:"), model.indexOf("enum SentinelJourneyMode:"));
   assert.doesNotMatch(pages, /case design\s*=/);
+});
+
+test("every supported Personal module has a purpose-built mobile workspace", () => {
+  for (const workspace of [
+    "SentinelChatWorkspace",
+    "SentinelWeatherDashboard",
+    "SentinelNavigationWorkspace",
+    "SentinelTravelWorkspace",
+    "SentinelMissionControl",
+    "SentinelMemoryWorkspace",
+    "SentinelConciergeWorkspace",
+    "SentinelMediaWorkspace",
+    "SentinelScannerWorkspace",
+    "SentinelNotificationsWorkspace",
+    "PersonalSystemVitalsPanel",
+  ]) assert.match(root, new RegExp(`private struct ${workspace}`));
+  assert.match(root, /private struct ModuleHero/);
+  assert.match(root, /private struct ModuleTabs/);
+});
+
+test("Travel mirrors Personal readiness, destination and collapsible flight management", () => {
+  assert.match(model, /@Published var tripEndDate/);
+  assert.match(model, /func removeTrip\(/);
+  assert.match(root, /PRE-DEPARTURE CONTROL/);
+  assert.match(root, /Things to do/);
+  assert.match(root, /DisclosureGroup\(isExpanded: \$flightManagementExpanded\)/);
+  assert.match(root, /LIVE AIRCRAFT/);
+});
+
+test("Mission Control has overview, Home, routines, security and automation parity", () => {
+  assert.match(root, /\("Routines", "play\.square\.stack\.fill"\)/);
+  assert.match(root, /Card\(title: "RUN HISTORY"/);
+  assert.match(root, /Card\(title: "GOVEE DEVICES"/);
+  assert.match(root, /Card\(title: "RECENT EVENTS"/);
+  assert.match(root, /Card\(title: "REVIEWED HOME COMMAND"/);
+});
+
+test("Concierge persists private profile and favourite plans", () => {
+  assert.match(model, /struct SentinelConciergeProfile: Codable/);
+  assert.match(model, /struct SavedConciergePlan: Identifiable, Codable/);
+  assert.match(model, /func saveConciergeFavourite\(/);
+  assert.match(root, /Card\(title: "DELIVERY PROFILE"/);
+  assert.match(root, /Card\(title: "SAVED FAVOURITES"/);
+});
+
+test("Media maintains genuine decks and a removable local library", () => {
+  assert.match(root, /Card\(title: "MIXER"/);
+  assert.match(root, /Card\(title: "TRACK LIBRARY"/);
+  assert.match(dj, /func remove\(_ track: MobileDJTrack\)/);
+  assert.match(dj, /FileManager\.default\.removeItem\(at: track\.url\)/);
+});
+
+test("Notifications provide Personal-style overview, filters, search and routing", () => {
+  assert.match(root, /ATTENTION CENTRE/);
+  assert.match(root, /case everything = "Everything", unread = "Unread", security = "Security", system = "System", service = "Service"/);
+  assert.match(root, /TextField\("Search notifications"/);
+  assert.match(root, /Mark all read/);
+  assert.match(root, /Open Attention Centre/);
+});
+
+test("paired Personal Windows vitals are bridged without exposing credentials", () => {
+  assert.match(companion, /"\/system\/vitals": "\/device"/);
+  assert.match(cloud, /func personalSystemVitals\(\)/);
+  assert.match(model, /struct PersonalSystemVitals: Decodable/);
+  assert.match(model, /func refreshPersonalSystem\(\) async/);
+  assert.match(root, /Live Windows vitals/);
+  assert.doesNotMatch(root, /AuthKey_[A-Z0-9]+\.p8/);
+});
+
+test("Chat keeps module context and exposes Personal-style recent conversations", () => {
+  assert.match(model, /lastContextualPage/);
+  assert.match(model, /selected == \.chat \? lastContextualPage : selected/);
+  assert.match(model, /travelDestinationSearch\.trimmingCharacters/);
+  assert.match(root, /recentConversations/);
+  assert.match(root, /conversation\.messages\.count\) messages/);
+  assert.match(root, /What's the weather\?/);
+  assert.match(root, /Generate an image/);
 });

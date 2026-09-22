@@ -9,7 +9,14 @@ import AVFoundation
 
 @MainActor
 final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLocationManagerDelegate {
-    @Published var selected: SentinelPage = .home
+    @Published var selected: SentinelPage = .home {
+        didSet {
+            if selected != .chat {
+                lastContextualPage = selected
+            }
+        }
+    }
+    @Published private(set) var lastContextualPage: SentinelPage = .home
     @Published var cloudOnline = false
     @Published var update: SentinelRelease?
     @Published private(set) var contentVersion: String
@@ -68,6 +75,7 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
 
     @Published var tripTitle = ""
     @Published var tripDate = Date()
+    @Published var tripEndDate = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
     @Published var tripNotes = ""
     @Published private(set) var trips: [SentinelTrip] = []
 
@@ -127,7 +135,9 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     @Published var conciergeAllergies = ""
     @Published var conciergeBudget = 35.0
     @Published var conciergePostcode = ""
+    @Published var conciergeAddressLabel = "Home"
     @Published private(set) var conciergePlan: ConciergePlan?
+    @Published private(set) var conciergeFavourites: [SavedConciergePlan] = []
     @Published private(set) var conciergeStatus = "Pair Sentinel Personal to plan an order securely."
     @Published private(set) var isPlanningConcierge = false
     @Published private(set) var personalLights: [PersonalHueLight] = []
@@ -151,6 +161,8 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     @Published private(set) var changingGoveeID: String?
     @Published private(set) var sceneStatus = "Choose a scene to control verified Home devices."
     @Published private(set) var isRunningScene = false
+    @Published private(set) var personalSystemVitals: PersonalSystemVitals?
+    @Published private(set) var personalSystemStatus = "Connect to Sentinel Personal on the same Wi-Fi to load Windows vitals."
 
     private let cloud = SentinelCloud()
     private var reconnectTask: Task<Void, Never>?
@@ -299,6 +311,8 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
         loadCachedWeather()
         loadChatConversation()
         loadMemories()
+        loadConciergeProfile()
+        loadConciergeFavourites()
 
         travelReadiness = Set(
             UserDefaults.standard.stringArray(
@@ -1293,6 +1307,46 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
         }
     }
 
+    func saveConciergeProfile() {
+        let profile = SentinelConciergeProfile(
+            addressLabel: conciergeAddressLabel.trimmingCharacters(in: .whitespacesAndNewlines),
+            postcode: conciergePostcode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+            allergies: conciergeAllergies.trimmingCharacters(in: .whitespacesAndNewlines),
+            budget: max(0, conciergeBudget),
+            people: max(1, min(12, conciergePeople))
+        )
+        conciergeAddressLabel = profile.addressLabel.isEmpty ? "Home" : profile.addressLabel
+        conciergePostcode = profile.postcode
+        conciergeAllergies = profile.allergies
+        conciergeBudget = profile.budget
+        conciergePeople = profile.people
+        if let data = try? JSONEncoder().encode(profile) { UserDefaults.standard.set(data, forKey: "sentinelConciergeProfile") }
+        conciergeStatus = "Delivery profile saved privately on this iPhone."
+    }
+
+    func saveConciergeFavourite() {
+        guard let plan = conciergePlan else { return }
+        let label = conciergeRequest.trimmingCharacters(in: .whitespacesAndNewlines)
+        conciergeFavourites.insert(
+            SavedConciergePlan(label: label.isEmpty ? plan.summary : label, plan: plan),
+            at: 0
+        )
+        conciergeFavourites = Array(conciergeFavourites.prefix(20))
+        persistConciergeFavourites()
+        conciergeStatus = "Favourite saved on this iPhone."
+    }
+
+    func useConciergeFavourite(_ favourite: SavedConciergePlan) {
+        conciergeRequest = favourite.label
+        conciergePlan = favourite.plan
+        conciergeStatus = "Saved favourite loaded for a fresh review."
+    }
+
+    func deleteConciergeFavourite(_ favourite: SavedConciergePlan) {
+        conciergeFavourites.removeAll { $0.id == favourite.id }
+        persistConciergeFavourites()
+    }
+
     func refreshPersonalLights() async {
         homeControlStatus = "Loading verified devices from Sentinel Personal…"
         do {
@@ -1463,6 +1517,17 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
             personalRingEvents = try await cloud.personalRingEvents()
             missionDataStatus = "\(personalRingDevices.filter(\.online).count) of \(personalRingDevices.count) cameras online."
         } catch { missionDataStatus = "Ring security unavailable: \(error.localizedDescription)" }
+    }
+
+    func refreshPersonalSystem() async {
+        personalSystemStatus = "Loading live Windows vitals…"
+        do {
+            personalSystemVitals = try await cloud.personalSystemVitals()
+            personalSystemStatus = "Live Personal vitals updated."
+        } catch {
+            personalSystemVitals = nil
+            personalSystemStatus = "Personal vitals unavailable: \(error.localizedDescription)"
+        }
     }
 
     func refreshCameraSnapshot(id: String) async {
@@ -1845,6 +1910,7 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
             SentinelTrip(
                 title: title,
                 date: tripDate,
+                endDate: max(tripDate, tripEndDate),
                 notes:
                     tripNotes.trimmingCharacters(
                         in: .whitespacesAndNewlines
@@ -1864,10 +1930,16 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
         tripTitle = ""
         tripNotes = ""
         tripDate = Date()
+        tripEndDate = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
     }
 
     func removeTrips(at offsets: IndexSet) {
         trips.remove(atOffsets: offsets)
+        saveTrips()
+    }
+
+    func removeTrip(_ trip: SentinelTrip) {
+        trips.removeAll { $0.id == trip.id }
         saveTrips()
     }
 
@@ -2000,6 +2072,28 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
 
     private func persistMemories() { memoryRepository.save(memories) }
 
+    private func loadConciergeProfile() {
+        guard let data = UserDefaults.standard.data(forKey: "sentinelConciergeProfile"),
+              let profile = try? JSONDecoder().decode(SentinelConciergeProfile.self, from: data) else { return }
+        conciergeAddressLabel = profile.addressLabel
+        conciergePostcode = profile.postcode
+        conciergeAllergies = profile.allergies
+        conciergeBudget = profile.budget
+        conciergePeople = profile.people
+    }
+
+    private func loadConciergeFavourites() {
+        guard let data = UserDefaults.standard.data(forKey: "sentinelConciergeFavourites"),
+              let favourites = try? JSONDecoder().decode([SavedConciergePlan].self, from: data) else { return }
+        conciergeFavourites = favourites
+    }
+
+    private func persistConciergeFavourites() {
+        if let data = try? JSONEncoder().encode(conciergeFavourites) {
+            UserDefaults.standard.set(data, forKey: "sentinelConciergeFavourites")
+        }
+    }
+
     private var mobileChatAccessEnabled: Bool {
         enabledMobileServices.contains { $0.lowercased() == "chat" || $0.lowercased() == "ai chat" || $0.lowercased() == "ai" }
             && KeychainStore.string(for: "mobileServiceAccessToken") != nil
@@ -2046,7 +2140,18 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
         let capabilities = enabledMobileServices.union(["companion", "file-sharing"]).sorted()
         let location = currentLocation.map { MobileChatLocation(latitude: $0.latitude, longitude: $0.longitude) }
         let approvedMemories = memories.filter(\.enabled).prefix(12).map { "[\($0.category.rawValue)] \($0.title): \($0.content)" }
-        return MobileChatContext(platform: "ios", appVersion: nativeVersion, contentVersion: contentVersion, currentPage: selected.rawValue.lowercased(), enabledServices: enabledMobileServices.sorted(), companionOnline: companionPaired, weatherSummary: weather.map { "\(Int($0.current.temperature2m))° \($0.conditionName)" }, weatherLocation: weatherDetails?.location.name, selectedDestination: mapSearch.isEmpty ? trips.first?.title : mapSearch, selectedFlight: flightStatus?.flight?.iata ?? flights.first?.number, localTime: ISO8601DateFormatter().string(from: .now), locale: "en-GB", capabilities: capabilities, memories: approvedMemories, location: location)
+        let contextualPage = selected == .chat ? lastContextualPage : selected
+        let destination: String? = {
+            if contextualPage == .travel {
+                let travelSearch = travelDestinationSearch.trimmingCharacters(in: .whitespacesAndNewlines)
+                return travelSearch.isEmpty ? trips.first?.title ?? personalTrips.first?.destination : travelSearch
+            }
+            let journey = journeyDestination.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !journey.isEmpty { return journey }
+            let placeSearch = mapSearch.trimmingCharacters(in: .whitespacesAndNewlines)
+            return placeSearch.isEmpty ? trips.first?.title ?? personalTrips.first?.destination : placeSearch
+        }()
+        return MobileChatContext(platform: "ios", appVersion: nativeVersion, contentVersion: contentVersion, currentPage: contextualPage.rawValue.lowercased(), enabledServices: enabledMobileServices.sorted(), companionOnline: companionPaired, weatherSummary: weather.map { "\(Int($0.current.temperature2m))° \($0.conditionName)" }, weatherLocation: weatherDetails?.location.name, selectedDestination: destination, selectedFlight: flightStatus?.flight?.iata ?? flights.first?.number ?? personalFlights.first?.number, localTime: ISO8601DateFormatter().string(from: .now), locale: "en-GB", capabilities: capabilities, memories: approvedMemories, location: location)
     }
 
     var liveTalkContext: [String: Any] {
@@ -2363,12 +2468,14 @@ struct SentinelTrip: Identifiable, Codable {
     let id: UUID
     let title: String
     let date: Date
+    let endDate: Date?
     let notes: String
 
-    init(title: String, date: Date, notes: String) {
+    init(title: String, date: Date, endDate: Date? = nil, notes: String) {
         id = UUID()
         self.title = title
         self.date = date
+        self.endDate = endDate
         self.notes = notes
     }
 }
@@ -2969,8 +3076,8 @@ struct ConciergePlanRequest: Encodable {
     let budget: Double
 }
 
-struct ConciergePlan: Decodable {
-    struct Pizza: Decodable { let name: String; let toppings: [String]; let remove: [String]; let notes: String }
+struct ConciergePlan: Codable {
+    struct Pizza: Codable { let name: String; let toppings: [String]; let remove: [String]; let notes: String }
     let summary: String
     let size: String
     let crust: String
@@ -2980,6 +3087,55 @@ struct ConciergePlan: Decodable {
     let drinks: [String]
     let estimatedTotal: Double
     let warnings: [String]
+}
+
+struct SentinelConciergeProfile: Codable {
+    let addressLabel: String
+    let postcode: String
+    let allergies: String
+    let budget: Double
+    let people: Int
+}
+
+struct SavedConciergePlan: Identifiable, Codable {
+    let id: UUID
+    let label: String
+    let plan: ConciergePlan
+    let savedAt: Date
+
+    init(label: String, plan: ConciergePlan) {
+        id = UUID()
+        self.label = label
+        self.plan = plan
+        savedAt = .now
+    }
+}
+
+struct PersonalSystemVitals: Decodable {
+    struct CPU: Decodable { let model: String; let cores: Int; let threads: Int; let usage: Double; let speed: Double }
+    struct GPU: Decodable { let model: String; let usage: Double; let memoryUsed: Double; let memoryTotal: Double }
+    struct Memory: Decodable { let total: Double; let used: Double; let free: Double }
+    struct Storage: Decodable, Identifiable { let name: String; let total: Double; let used: Double; let free: Double; var id: String { name } }
+    struct Battery: Decodable { let present: Bool; let charging: Bool; let level: Double }
+    struct Network: Decodable { let connected: Bool; let interface: String; let localIP: String }
+    struct Display: Decodable { let width: Int; let height: Int; let refreshRate: Double; let scale: Double }
+    struct Hardware: Decodable {
+        struct Sensor: Decodable, Identifiable { let name: String; let hardware: String; let type: String; let value: Double; let unit: String; var id: String { "\(hardware)-\(type)-\(name)" } }
+        struct Disk: Decodable, Identifiable { let name: String; let mediaType: String; let health: String; let temperature: Double?; var id: String { name } }
+        let sensorProvider: String
+        let sensors: [Sensor]
+        let disks: [Disk]
+        let uptimeSeconds: Double
+        let updatedAt: String
+    }
+    let cpu: CPU
+    let gpu: GPU
+    let memory: Memory
+    let storage: [Storage]
+    let battery: Battery
+    let network: Network
+    let display: Display
+    let hardware: Hardware
 }
 
 struct PersonalHueLight: Decodable, Identifiable {

@@ -172,6 +172,11 @@ struct SentinelCloud {
         return try JSONDecoder().decode([PersonalRingEvent].self, from: data)
     }
 
+    func personalSystemVitals() async throws -> PersonalSystemVitals {
+        let data = try await localCompanionRequest(path: "/system/vitals", method: "GET", body: nil)
+        return try JSONDecoder().decode(PersonalSystemVitals.self, from: data)
+    }
+
     func personalRingSnapshot(id: String) async throws -> Data? {
         let safeID = id.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? id
         let data = try await localCompanionRequest(path: "/mission/ring/devices/\(safeID)/snapshot", method: "GET", body: nil)
