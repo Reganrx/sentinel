@@ -14,7 +14,7 @@ struct RootView: View {
         NavigationStack(path: $navigationPath) {
             SentinelPageView(page: .home)
                 .navigationDestination(for: SentinelPage.self) { SentinelPageView(page: $0) }
-                .toolbar { ToolbarItemGroup(placement: .topBarTrailing) { Button { live.open(conversationId: app.conversationID, enabledServices: app.enabledMobileServices.sorted()) } label: { Image(systemName: liveIcon).symbolEffect(.pulse, options: .repeating, isActive: live.state == .thinking || live.state == .speaking).foregroundStyle(Color(uiColor: app.accentColor)) }.accessibilityLabel(liveAccessibilityLabel); Button { browsePresented = true } label: { Label("Browse", systemImage: "square.grid.2x2") } } }
+                .toolbar { ToolbarItemGroup(placement: .topBarTrailing) { Button { live.open(conversationId: app.conversationID, enabledServices: app.enabledMobileServices.sorted(), context: app.liveTalkContext) } label: { Image(systemName: liveIcon).symbolEffect(.pulse, options: .repeating, isActive: live.state == .thinking || live.state == .speaking).foregroundStyle(Color(uiColor: app.accentColor)) }.accessibilityLabel(liveAccessibilityLabel); Button { browsePresented = true } label: { Label("Browse", systemImage: "square.grid.2x2") } } }
         }
         .environmentObject(dj)
         .tint(Color(uiColor: app.accentColor)).preferredColorScheme(.dark)
@@ -73,7 +73,37 @@ private struct SentinelBottomBar: View {
 private struct SentinelBrowseView: View {
     @EnvironmentObject private var app: SentinelAppModel
     @Environment(\.dismiss) private var dismiss
-    var body: some View { NavigationStack { List(app.menuPages.filter { $0 != .home }) { page in Button { app.selected = page; dismiss() } label: { Label(page.rawValue, systemImage: page.symbol) } }.navigationTitle("Sentinel").toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } } }.preferredColorScheme(.dark) }
+    @State private var query = ""
+    private var pages: [SentinelPage] { app.menuPages.filter { page in page != .home && (query.isEmpty || "\(page.rawValue) \(description(for: page))".localizedCaseInsensitiveContains(query)) } }
+    var body: some View {
+        NavigationStack {
+            List(pages) { page in
+                Button { app.selected = page; dismiss() } label: {
+                    HStack(spacing: 12) { Image(systemName: page.symbol).foregroundStyle(Color(uiColor: app.accentColor)).frame(width: 26); VStack(alignment: .leading, spacing: 2) { Text(page.rawValue).foregroundStyle(.primary); Text(description(for: page)).font(.caption).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary) }
+                }
+            }
+            .searchable(text: $query, prompt: "Find a Sentinel page")
+            .navigationTitle("Sentinel Command Centre")
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+        }.preferredColorScheme(.dark)
+    }
+    private func description(for page: SentinelPage) -> String {
+        switch page {
+        case .chat: "Chat, voice, files and images"
+        case .weather: "Forecast, alerts and radar"
+        case .navigation: "Routes, nearby places and saved locations"
+        case .travel: "Trips, flights and destination briefings"
+        case .missionControl: "Home scenes, security and integrations"
+        case .memory: "Control what Sentinel remembers"
+        case .concierge: "Plan and review an order"
+        case .media: "Mobile DJ and Windows playback"
+        case .scanner: "Review devices seen by Personal"
+        case .notifications: "Sentinel activity and attention"
+        case .settings: "Appearance, services and privacy"
+        case .system: "iPhone and Sentinel status"
+        case .home: "Mobile command centre"
+        }
+    }
 }
 
 private struct SentinelPageView: View {
@@ -113,6 +143,7 @@ private struct SentinelPageView: View {
         case .media: media
         case .scanner: scanner
         case .missionControl: missionControl
+        case .memory: SentinelMemoryWorkspace()
         case .notifications: notifications
         case .settings: settings
         case .system: system
@@ -120,10 +151,23 @@ private struct SentinelPageView: View {
     }
     private var home: some View { Group {
         HomeHero()
-        Card(title: "QUICK COMMAND", symbol: "sparkles") { Text("Ask Sentinel anything, dictate once, or start a live conversation.").font(.caption).foregroundStyle(.secondary); if showHomeQuickReply, let latest = app.chatMessages.last { VStack(alignment: .leading, spacing: 5) { Text(latest.role == .user ? "YOU" : "SENTINEL").font(.caption2.bold()).foregroundStyle(Color(uiColor: app.accentColor)); Text(latest.text).font(.subheadline).textSelection(.enabled) }.padding(10).frame(maxWidth: .infinity, alignment: .leading).background(latest.role == .user ? Color(uiColor: app.accentColor).opacity(0.16) : Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 13)) }; if app.isSendingChat { HStack { ProgressView().tint(Color(uiColor: app.accentColor)); Text("Sentinel is thinking…").font(.caption).foregroundStyle(.secondary) } }; if let error = app.chatError, showHomeQuickReply { Text(error).font(.caption).foregroundStyle(.orange); Button("Retry") { Task { await app.retryAssistantPrompt() } }.buttonStyle(.bordered) }; HStack(spacing: 10) { TextField("Ask Sentinel anything…", text: $app.chatDraft, axis: .vertical).lineLimit(1...3).submitLabel(.send).onSubmit { sendHomeQuickCommand() }.textFieldStyle(.roundedBorder); Button { live.open(conversationId: app.conversationID, enabledServices: app.enabledMobileServices.sorted()) } label: { Image(systemName: "waveform.badge.mic").font(.title3) }.accessibilityLabel("Talk with Sentinel"); Button { sendHomeQuickCommand() } label: { Image(systemName: "arrow.up.circle.fill").font(.system(size: 34)) }.disabled(app.chatDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || app.isSendingChat) } }
+        Card(title: "QUICK COMMAND", symbol: "sparkles") { Text("Ask Sentinel anything, dictate once, or start a live conversation.").font(.caption).foregroundStyle(.secondary); if showHomeQuickReply, let latest = app.chatMessages.last { VStack(alignment: .leading, spacing: 5) { Text(latest.role == .user ? "YOU" : "SENTINEL").font(.caption2.bold()).foregroundStyle(Color(uiColor: app.accentColor)); Text(latest.text).font(.subheadline).textSelection(.enabled) }.padding(10).frame(maxWidth: .infinity, alignment: .leading).background(latest.role == .user ? Color(uiColor: app.accentColor).opacity(0.16) : Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 13)) }; if app.isSendingChat { HStack { ProgressView().tint(Color(uiColor: app.accentColor)); Text("Sentinel is thinking…").font(.caption).foregroundStyle(.secondary) } }; if let error = app.chatError, showHomeQuickReply { Text(error).font(.caption).foregroundStyle(.orange); Button("Retry") { Task { await app.retryAssistantPrompt() } }.buttonStyle(.bordered) }; HStack(spacing: 10) { TextField("Ask Sentinel anything…", text: $app.chatDraft, axis: .vertical).lineLimit(1...3).submitLabel(.send).onSubmit { sendHomeQuickCommand() }.textFieldStyle(.roundedBorder); Button { live.open(conversationId: app.conversationID, enabledServices: app.enabledMobileServices.sorted(), context: app.liveTalkContext) } label: { Image(systemName: "waveform.badge.mic").font(.title3) }.accessibilityLabel("Talk with Sentinel"); Button { sendHomeQuickCommand() } label: { Image(systemName: "arrow.up.circle.fill").font(.system(size: 34)) }.disabled(app.chatDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || app.isSendingChat) } }
         if let weather = app.weather { NavigationLink(value: SentinelPage.weather) { HomeWeatherCard(weather: weather, location: app.weatherDetails?.location.name, updatedAt: app.weatherUpdatedAt) }.buttonStyle(.plain).accessibilityLabel("Open weather") }
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 11), GridItem(.flexible(), spacing: 11)], spacing: 11) { ForEach([SentinelPage.chat, .weather, .navigation, .travel, .missionControl, .concierge, .media, .scanner]) { item in NavigationLink(value: item) { HomeAction(page: item, subtitle: homeShortcutSubtitle(item)) } } }
-        Card(title: "UP NEXT", symbol: "calendar") { Text(app.trips.first.map { "\($0.title) · \($0.date.formatted(date: .abbreviated, time: .shortened))" } ?? "No upcoming trips saved. Add one in Travel for a mobile briefing.") }
+        Card(title: "DAILY BRIEFING", symbol: "text.bubble.fill") {
+            Text(app.dailyBriefing).font(.subheadline).lineSpacing(3).textSelection(.enabled)
+            HStack {
+                Button { app.speakDailyBriefing() } label: { Label("Speak", systemImage: "speaker.wave.2.fill") }.buttonStyle(.borderedProminent)
+                Button { Task { await app.refreshCommandCentre() } } label: { Label(app.isRefreshingCommandCentre ? "Refreshing…" : "Refresh", systemImage: "arrow.clockwise") }.buttonStyle(.bordered).disabled(app.isRefreshingCommandCentre)
+            }
+            Text(app.commandCentreStatus).font(.caption2).foregroundStyle(.secondary)
+        }
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 11), GridItem(.flexible(), spacing: 11)], spacing: 11) { ForEach([SentinelPage.chat, .weather, .navigation, .travel, .missionControl, .memory, .concierge, .media, .scanner]) { item in NavigationLink(value: item) { HomeAction(page: item, subtitle: homeShortcutSubtitle(item)) } } }
+        Card(title: "TODAY AT A GLANCE", symbol: "sparkles") {
+            StatusRow("Desktop", app.companionPaired ? "Paired" : "Unavailable", good: app.companionPaired)
+            StatusRow("Unread activity", "\(app.unreadActivityCount)", good: app.unreadActivityCount == 0)
+            StatusRow("Active memories", "\(app.memories.filter(\.enabled).count)", good: true)
+            Text(app.trips.first.map { "Next: \($0.title) · \($0.date.formatted(date: .abbreviated, time: .shortened))" } ?? "No upcoming trips saved. Add one in Travel for a mobile briefing.").font(.caption).foregroundStyle(.secondary)
+        }
     } }
     private var navigation: some View { SentinelNavigationWorkspace() }
     private var travel: some View { SentinelTravelWorkspace(section: $travelSection) }
@@ -152,7 +196,7 @@ private struct SentinelPageView: View {
     private func formattedUptime(_ interval: TimeInterval) -> String { let total = Int(interval); return "\(total / 3600)h \((total % 3600) / 60)m" }
     private func sendHomeQuickCommand() { showHomeQuickReply = true; Task { await app.submitAssistantPrompt() } }
     private func notificationDestination(_ item: SentinelActivity) -> SentinelPage { let text = "\(item.title) \(item.detail)".lowercased(); if text.contains("weather") || text.contains("rain") { return .weather }; if text.contains("flight") || text.contains("travel") { return .travel }; if text.contains("security") || text.contains("automation") || text.contains("desktop") { return .missionControl }; return .system }
-    private func homeShortcutSubtitle(_ page: SentinelPage) -> String { switch page { case .chat: "Ready"; case .weather: app.weather?.conditionName ?? "Local forecast"; case .navigation: app.lastKnownLocation == nil ? "Set location" : "Current location"; case .travel: app.trips.first?.title ?? "No trip planned"; case .concierge: "Plan and review an order"; case .missionControl: "Home and security"; case .media: "Windows playback"; case .scanner: "Review your devices"; default: "Open" } }
+    private func homeShortcutSubtitle(_ page: SentinelPage) -> String { switch page { case .chat: "Ready"; case .weather: app.weather?.conditionName ?? "Local forecast"; case .navigation: app.lastKnownLocation == nil ? "Set location" : "Current location"; case .travel: app.trips.first?.title ?? "No trip planned"; case .concierge: "Plan and review an order"; case .missionControl: "Home, scenes and security"; case .memory: "\(app.memories.filter(\.enabled).count) active"; case .media: "Windows playback"; case .scanner: "Review your devices"; default: "Open" } }
 }
 
 private struct SentinelConciergeWorkspace: View {
@@ -338,6 +382,7 @@ private struct SentinelMissionControl: View {
     @State private var pendingGoveeDevice: PersonalGoveeDevice?
     @State private var pendingGoveeOn = false
     @State private var confirmGovee = false
+    @State private var pendingScene: SentinelMobileScene?
     private var accent: Color { Color(uiColor: app.accentColor) }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -351,9 +396,28 @@ private struct SentinelMissionControl: View {
         }
         .alert("Confirm home command", isPresented: $confirmCommand) { Button("Cancel", role: .cancel) {}; Button("Send") { Task { await app.queueDesktopAction(.smartHomeControl, target: device, command: "\(command) \(device)", approved: true) } } } message: { Text("Send “\(command) \(device)” to Sentinel Personal?") }
         .confirmationDialog("Change only \(pendingGoveeDevice?.name ?? "this device")?", isPresented: $confirmGovee) { Button(pendingGoveeOn ? "Turn on" : "Turn off") { if let selected = pendingGoveeDevice { Task { await app.controlGovee(selected, control: PersonalGoveeControl(on: pendingGoveeOn)) } } } }
+        .confirmationDialog("Run \(pendingScene?.rawValue ?? "this scene")?", isPresented: Binding(get: { pendingScene != nil }, set: { if !$0 { pendingScene = nil } }), titleVisibility: .visible) {
+            Button("Run scene") { if let scene = pendingScene { Task { await app.runScene(scene) } }; pendingScene = nil }
+            Button("Cancel", role: .cancel) { pendingScene = nil }
+        } message: { Text(pendingScene?.detail ?? "This will change connected Home devices through Sentinel Personal.") }
     }
     private var overview: some View { Group {
         Card(title: "MISSION STATUS", symbol: "shield.lefthalf.filled") { StatusRow("Sentinel Personal", app.pairingStatus, good: app.companionPaired); StatusRow("Mobile services", app.mobileAccessStatus, good: app.hasMobileServiceAccess); Text(app.missionDataStatus).font(.caption).foregroundStyle(.secondary); Button("Test Personal + iPhone") { Task { await app.testPersonalAndMobile(); await app.refreshMissionData() } }.buttonStyle(.borderedProminent).tint(accent) }
+        Card(title: "QUICK SCENES", symbol: "switch.2") {
+            Text("Scenes control only the Hue and Govee devices verified by your paired Personal computer.").font(.caption).foregroundStyle(.secondary)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ForEach(SentinelMobileScene.allCases) { scene in
+                    Button { pendingScene = scene } label: {
+                        VStack(alignment: .leading, spacing: 7) {
+                            Image(systemName: scene.symbol).font(.title3).foregroundStyle(accent)
+                            Text(scene.rawValue).font(.subheadline.bold()).foregroundStyle(.primary)
+                            Text(scene.detail).font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.leading)
+                        }.frame(maxWidth: .infinity, minHeight: 92, alignment: .leading).padding(11)
+                    }.buttonStyle(.plain).background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14)).disabled(app.isRunningScene || !app.companionPaired)
+                }
+            }
+            HStack { if app.isRunningScene { ProgressView().tint(accent) }; Text(app.sceneStatus).font(.caption).foregroundStyle(.secondary) }
+        }
         Card(title: "CONNECTED INTEGRATIONS", symbol: "puzzlepiece.extension.fill") { if app.personalIntegrations.isEmpty { Text(app.missionDataStatus).font(.caption).foregroundStyle(.secondary) }; ForEach(app.personalIntegrations) { integration in StatusRow(integration.name, integration.connected ? "Connected" : "Not connected", good: integration.connected) } }
     } }
     private var homeControl: some View { Group { Card(title: "HOME COMMAND", symbol: "house.fill") {
@@ -610,6 +674,26 @@ private struct SentinelWeatherDashboard: View {
         Group {
             if let weather = app.weather {
                 VStack(alignment: .leading, spacing: 14) {
+                    if let alerts = app.weatherDetails?.alerts?.alert, !alerts.isEmpty {
+                        Card(title: "ACTIVE WEATHER ALERTS", symbol: "exclamationmark.triangle.fill") {
+                            ForEach(alerts) { alert in
+                                DisclosureGroup {
+                                    VStack(alignment: .leading, spacing: 7) {
+                                        if let detail = weatherAlertDetail(alert) { Text(detail).font(.caption).foregroundStyle(.secondary) }
+                                        if let instruction = alert.instruction, !instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { Text(instruction).font(.caption.weight(.semibold)) }
+                                        if let expires = alert.expires, !expires.isEmpty { Label("Expires \(expires)", systemImage: "clock.badge.exclamationmark").font(.caption2).foregroundStyle(.secondary) }
+                                    }.padding(.top, 5)
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(alert.title).font(.subheadline.bold())
+                                        Text([alert.severity, alert.urgency, alert.areas].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption2).foregroundStyle(.orange)
+                                    }
+                                }
+                                Divider().opacity(0.2)
+                            }
+                            Text("Alerts are supplied by WeatherAPI. Follow official local advice for urgent conditions.").font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
                     ZStack(alignment: .bottomLeading) {
                         LinearGradient(colors: weatherHeroColours(weather.current.weatherCode), startPoint: .topLeading, endPoint: .bottomTrailing)
                         Image(systemName: weather.symbol).font(.system(size: 132, weight: .thin)).foregroundStyle(.white.opacity(0.11)).offset(x: 215, y: -34)
@@ -633,6 +717,11 @@ private struct SentinelWeatherDashboard: View {
                             weatherMetric("UV index", "\(Int(details.current.uv))", "sun.max.fill")
                             weatherMetric("Rain now", String(format: "%.1f mm", details.current.precipMm), "drop.fill")
                         }
+                    }
+                    Card(title: "WEATHER INSIGHTS", symbol: "sparkles") {
+                        weatherInsight("Umbrella", umbrellaInsight(weather), "umbrella.fill")
+                        weatherInsight("UV", uvInsight(), "sun.max.trianglebadge.exclamationmark.fill")
+                        weatherInsight("Wind", windInsight(weather), "wind")
                     }
                     Text(app.weatherUpdatedAt.map { "Updated \($0.formatted(date: .omitted, time: .shortened))" } ?? app.weatherStatus).font(.caption).foregroundStyle(.secondary)
                 }
@@ -694,6 +783,37 @@ private struct SentinelWeatherDashboard: View {
         Text("No colour means no precipitation in the selected frame. Use Wider UK view to see systems approaching your area.").font(.caption2).foregroundStyle(.secondary)
         if let weather = app.weather { VStack(alignment: .leading, spacing: 7) { Text("NEXT 6 HOURS").font(.caption.bold()).foregroundStyle(accent); ScrollView(.horizontal, showsIndicators: false) { HStack { ForEach(futureHours(weather, limit: 6), id: \.offset) { index, time in VStack(spacing: 3) { Text(String(time.suffix(5))).font(.caption2); Image(systemName: hourlySymbol(index, fallback: weather.current.weatherCode)).foregroundStyle(accent); Text("\(Int(weather.hourly.temperature2m[index]))°").font(.caption.bold()); Text("\(weather.hourly.precipitationProbability[index])% · \(hourlyRainAmount(index), specifier: "%.1f") mm").font(.system(size: 9, weight: .medium)).foregroundStyle(weather.hourly.precipitationProbability[index] >= 50 ? accent : .secondary) }.frame(width: 86).padding(6).background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10)) } } } } }
     } }
+    private func weatherAlertDetail(_ alert: SentinelWeatherAPIResponse.Alert) -> String? {
+        for value in [alert.desc, alert.note, alert.headline] {
+            if let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return value }
+        }
+        return nil
+    }
+    private func weatherInsight(_ title: String, _ detail: String, _ symbol: String) -> some View {
+        HStack(alignment: .top, spacing: 11) { Image(systemName: symbol).foregroundStyle(accent).frame(width: 25); VStack(alignment: .leading, spacing: 2) { Text(title).font(.subheadline.bold()); Text(detail).font(.caption).foregroundStyle(.secondary) }; Spacer() }
+    }
+    private func umbrellaInsight(_ weather: SentinelWeather) -> String {
+        let hours = futureHours(weather, limit: 6)
+        let wettest = hours.max { weather.hourly.precipitationProbability[$0.offset] < weather.hourly.precipitationProbability[$1.offset] }
+        let total = hours.reduce(0.0) { $0 + hourlyRainAmount($1.offset) }
+        guard let wettest else { return "Hourly rain guidance is not available yet." }
+        let chance = weather.hourly.precipitationProbability[wettest.offset]
+        if total >= 0.1 { return "Take one — around \(String(wettest.element.suffix(5))) has \(chance)% chance and \(String(format: "%.1f", total)) mm forecast over six hours." }
+        if chance >= 50 { return "Worth taking one: rain chance reaches \(chance)% around \(String(wettest.element.suffix(5))), although no measurable amount is forecast yet." }
+        return "Probably not needed; the highest six-hour rain chance is \(chance)%."
+    }
+    private func uvInsight() -> String {
+        guard let uv = app.weatherDetails?.current.uv else { return "UV guidance is not available." }
+        if uv >= 6 { return "UV \(Int(uv)) is high — use shade and sun protection." }
+        if uv >= 3 { return "UV \(Int(uv)) is moderate — protection is sensible outdoors." }
+        return "UV \(Int(uv)) is low."
+    }
+    private func windInsight(_ weather: SentinelWeather) -> String {
+        let speed = Int(weather.current.windSpeed10m)
+        if speed >= 50 { return "Strong winds at \(speed) km/h — secure loose outdoor items and check travel advice." }
+        if speed >= 30 { return "Breezy at \(speed) km/h; exposed routes may feel stronger." }
+        return "Winds are relatively light at \(speed) km/h."
+    }
     private func weatherMetric(_ title: String, _ value: String, _ symbol: String) -> some View { HStack(spacing: 11) { Image(systemName: symbol).font(.title3).foregroundStyle(accent).frame(width: 27); VStack(alignment: .leading, spacing: 2) { Text(title).font(.caption).foregroundStyle(.secondary); Text(value).font(.headline) }; Spacer() }.padding(13).background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16)) }
     private func weatherHeroColours(_ code: Int) -> [Color] { switch code { case 0: [Color(red: 0.05, green: 0.38, blue: 0.72), Color(red: 0.08, green: 0.69, blue: 0.88)]; case 45, 48: [Color(red: 0.18, green: 0.25, blue: 0.31), Color(red: 0.35, green: 0.43, blue: 0.48)]; case 51...67, 80...82: [Color(red: 0.04, green: 0.12, blue: 0.24), Color(red: 0.08, green: 0.31, blue: 0.47)]; case 95...99: [Color(red: 0.08, green: 0.05, blue: 0.19), Color(red: 0.28, green: 0.13, blue: 0.40)]; default: [Color(red: 0.08, green: 0.22, blue: 0.38), Color(red: 0.18, green: 0.43, blue: 0.59)] } }
     private func rainSummary(_ weather: SentinelWeather) -> String { let hours = futureHours(weather, limit: 6); guard let wet = hours.first(where: { weather.hourly.precipitationProbability[$0.offset] >= 50 }) else { return "Low chance of rain for the next six hours" }; return "Rain chance reaches \(weather.hourly.precipitationProbability[wet.offset])% around \(String(wet.element.suffix(5)))" }
@@ -859,6 +979,59 @@ private struct KeyboardDismissInstaller: UIViewRepresentable {
     }
 }
 
+private struct SentinelMemoryWorkspace: View {
+    @EnvironmentObject private var app: SentinelAppModel
+    @State private var title = ""
+    @State private var content = ""
+    @State private var category: SentinelMemory.Category = .preference
+    @State private var query = ""
+    @State private var pendingDelete: SentinelMemory?
+    @State private var confirmDeleteAll = false
+    private var accent: Color { Color(uiColor: app.accentColor) }
+    private var filtered: [SentinelMemory] {
+        app.memories.filter { query.isEmpty || "\($0.title) \($0.content) \($0.category.rawValue)".localizedCaseInsensitiveContains(query) }
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Card(title: "MEMORY MANAGER", symbol: "brain.head.profile") {
+                Text("Only enabled memories are supplied to Sentinel chat or Live Talk. They stay in this app until you start a conversation, and you can disable or remove them at any time.").font(.caption).foregroundStyle(.secondary)
+                TextField("Memory title", text: $title).textFieldStyle(.roundedBorder)
+                TextField("What should Sentinel remember?", text: $content, axis: .vertical).lineLimit(2...6).textFieldStyle(.roundedBorder)
+                HStack {
+                    Picker("Category", selection: $category) { ForEach(SentinelMemory.Category.allCases) { Label($0.rawValue, systemImage: $0.symbol).tag($0) } }.pickerStyle(.menu)
+                    Spacer()
+                    Button("Remember") { app.addMemory(title: title, content: content, category: category); title = ""; content = "" }.buttonStyle(.borderedProminent).tint(accent).disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            Card(title: "SENTINEL KNOWS", symbol: "books.vertical.fill") {
+                HStack { TextField("Search memories", text: $query).textFieldStyle(.roundedBorder); Text("\(app.memories.filter(\.enabled).count) active").font(.caption).foregroundStyle(.secondary) }
+                if filtered.isEmpty { Text(app.memories.isEmpty ? "No memories yet. Add a useful preference, project detail or profile fact above." : "No memories match your search.").font(.caption).foregroundStyle(.secondary) }
+                ForEach(filtered) { memory in
+                    VStack(alignment: .leading, spacing: 7) {
+                        HStack {
+                            Label(memory.title, systemImage: memory.category.symbol).font(.subheadline.bold())
+                            Spacer()
+                            Toggle("", isOn: Binding(get: { memory.enabled }, set: { app.setMemoryEnabled(memory, enabled: $0) })).labelsHidden().accessibilityLabel(memory.enabled ? "Disable memory" : "Enable memory")
+                        }
+                        Text(memory.content).font(.caption).foregroundStyle(memory.enabled ? .primary : .secondary).lineLimit(6)
+                        HStack { Text(memory.category.rawValue.uppercased()).font(.caption2.bold()).foregroundStyle(accent); Spacer(); Button(role: .destructive) { pendingDelete = memory } label: { Label("Remove", systemImage: "trash") }.font(.caption).buttonStyle(.bordered) }
+                    }
+                    .padding(11).background(Color.white.opacity(memory.enabled ? 0.07 : 0.035), in: RoundedRectangle(cornerRadius: 14))
+                }
+                if !app.memories.isEmpty { Button("Remove all memories", role: .destructive) { confirmDeleteAll = true }.buttonStyle(.bordered) }
+            }
+        }
+        .confirmationDialog("Remove this memory?", isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }), titleVisibility: .visible) {
+            Button("Remove memory", role: .destructive) { if let memory = pendingDelete { app.deleteMemory(memory) }; pendingDelete = nil }
+            Button("Cancel", role: .cancel) { pendingDelete = nil }
+        }
+        .confirmationDialog("Remove every Sentinel memory?", isPresented: $confirmDeleteAll, titleVisibility: .visible) {
+            Button("Remove all memories", role: .destructive) { app.deleteAllMemories() }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text("This cannot be undone. Your conversation history is not removed.") }
+    }
+}
+
 private struct SentinelChatWorkspace: View {
     @EnvironmentObject private var app: SentinelAppModel
     @EnvironmentObject private var live: LiveTalkManager
@@ -887,7 +1060,7 @@ private struct SentinelChatWorkspace: View {
 
     private var assistantWorkspace: some View {
         VStack(spacing: 6) {
-            HStack(spacing: 10) { VStack(alignment: .leading, spacing: 1) { Text(app.conversationTitle).font(.headline).lineLimit(1); Text(app.isSendingChat ? "Sentinel is responding…" : "Sentinel AI").font(.caption2).foregroundStyle(.secondary) }; Spacer(); Button { historyPresented = true } label: { Image(systemName: "clock.arrow.circlepath") }.buttonStyle(.bordered).accessibilityLabel("Conversation history"); Menu { Button("Rename conversation") { renamedTitle = app.conversationTitle; renamePresented = true }; Button(app.spokenResponses ? "Turn spoken replies off" : "Turn spoken replies on") { app.setSpokenResponses(!app.spokenResponses) }; ShareLink(item: app.conversationExportText) { Label("Export conversation", systemImage: "square.and.arrow.up") }; Button("New conversation") { app.newConversation() }; Button("Clear current conversation", role: .destructive) { app.clearConversation() } } label: { Image(systemName: "ellipsis.circle") }.buttonStyle(.bordered).accessibilityLabel("Conversation options") }.padding(.horizontal).padding(.bottom, 4).background(Color.black.opacity(0.12))
+            HStack(spacing: 10) { VStack(alignment: .leading, spacing: 1) { Text(app.conversationTitle).font(.headline).lineLimit(1); Text(app.isSendingChat ? "Sentinel is responding…" : "Sentinel AI · \(app.memories.filter(\.enabled).count) memories").font(.caption2).foregroundStyle(.secondary) }; Spacer(); Button { historyPresented = true } label: { Image(systemName: "clock.arrow.circlepath") }.buttonStyle(.bordered).accessibilityLabel("Conversation history"); Menu { Button("Rename conversation") { renamedTitle = app.conversationTitle; renamePresented = true }; Button("Remember latest exchange") { app.rememberLatestExchange() }.disabled(!app.chatMessages.contains { $0.role == .user }); Button("Open Memory Manager") { app.selected = .memory }; Button(app.spokenResponses ? "Turn spoken replies off" : "Turn spoken replies on") { app.setSpokenResponses(!app.spokenResponses) }; ShareLink(item: app.conversationExportText) { Label("Export conversation", systemImage: "square.and.arrow.up") }; Button("New conversation") { app.newConversation() }; Button("Clear current conversation", role: .destructive) { app.clearConversation() } } label: { Image(systemName: "ellipsis.circle") }.buttonStyle(.bordered).accessibilityLabel("Conversation options") }.padding(.horizontal).padding(.bottom, 4).background(Color.black.opacity(0.12))
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
@@ -954,7 +1127,7 @@ private struct SentinelChatWorkspace: View {
                 Menu { Button { importingChatAttachment = true } label: { Label("Choose file", systemImage: "folder") }; Button { cameraPresented = true } label: { Label("Take photo", systemImage: "camera") }; PhotosPicker(selection: $selectedPhoto, matching: .images) { Label("Photo library", systemImage: "photo.on.rectangle") } } label: { Image(systemName: "plus.circle.fill").font(.system(size: 31)) }.tint(accent).disabled(app.isSendingChat).accessibilityLabel("Add attachment")
                 TextField("Message Sentinel…", text: $app.chatDraft, axis: .vertical).lineLimit(1...5).padding(11).background(Color.black.opacity(0.42), in: RoundedRectangle(cornerRadius: 16))
                 Button { app.toggleVoiceChat() } label: { Image(systemName: app.voiceStatus == "Listening…" ? "waveform.circle.fill" : "mic.circle.fill").font(.system(size: 30)) }.buttonStyle(.plain).foregroundStyle(accent).disabled(app.isSendingChat)
-                Button { live.open(conversationId: app.conversationID, enabledServices: app.enabledMobileServices.sorted()) } label: { Image(systemName: "waveform.badge.mic").font(.system(size: 25)) }.buttonStyle(.plain).foregroundStyle(accent).accessibilityLabel("Talk with Sentinel")
+                Button { live.open(conversationId: app.conversationID, enabledServices: app.enabledMobileServices.sorted(), context: app.liveTalkContext) } label: { Image(systemName: "waveform.badge.mic").font(.system(size: 25)) }.buttonStyle(.plain).foregroundStyle(accent).accessibilityLabel("Talk with Sentinel")
                 Button { Task { await app.submitAssistantPrompt() } } label: { Image(systemName: app.isSendingChat ? "hourglass" : "arrow.up.circle.fill").font(.system(size: 34)) }.disabled((app.chatDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && app.chatAttachments.isEmpty) || app.isSendingChat)
             }
         }
@@ -1128,11 +1301,12 @@ private struct SentinelMobileHelpView: View {
     }
     @Environment(\.dismiss) private var dismiss
     private let sections = [
-        HelpSection(title: "Chat and images", detail: "Ask Sentinel normally, attach a file or photo with the plus button, or request an image in plain English. Generated images stay with the conversation; tap one for full-screen viewing and use Share to save or send it. Use History to reopen an earlier conversation."),
-        HelpSection(title: "Voice", detail: "The microphone sends one dictated message. Talk with Sentinel starts a live conversation; minimise its panel to move around without ending the session. You can ask Live Talk to open Home, Chat, Navigation, Travel, Weather, Mission Control, Concierge, Media, Device Scanner, Notifications, Settings or System."),
-        HelpSection(title: "Weather and navigation", detail: "Weather uses the current location and approved mobile service access. Navigation can search nearby places, calculate a route and hand the journey to Apple Maps."),
+        HelpSection(title: "Home and daily briefing", detail: "Home combines current weather, the next saved trip or flight, desktop pairing and unread activity into one daily briefing. Tap Speak to hear it or Refresh to update connected Personal, mobile services, travel and location-based weather."),
+        HelpSection(title: "Chat, images and memory", detail: "Ask Sentinel normally, attach a file or photo with the plus button, or request an image in plain English. Generated images stay with the conversation; tap one for full-screen viewing and use Share to save or send it. Use History to reopen an earlier conversation. In the conversation menu, choose Remember latest exchange, or open Memory Manager to add, search, disable and remove facts Sentinel may use in later chats."),
+        HelpSection(title: "Voice", detail: "The microphone sends one dictated message. Talk with Sentinel starts a live conversation; minimise its panel to move around without ending the session. You can ask Live Talk to open Home, Chat, Navigation, Travel, Weather, Mission Control, Memory, Concierge, Media, Device Scanner, Notifications, Settings or System."),
+        HelpSection(title: "Weather and navigation", detail: "Weather uses the current location and approved mobile service access. Current conditions include practical umbrella, UV and wind guidance; official provider alerts appear when available. Radar combines forecast precipitation tiles with hour-by-hour rain chance and amount. Navigation can search nearby places, calculate a route and hand the journey to Apple Maps."),
         HelpSection(title: "Travel", detail: "Save journeys and flights, review destination information, and keep readiness items together. Confirm important details with the airline or official travel guidance."),
-        HelpSection(title: "Mission Control", detail: "Home Command loads Hue and Govee devices from paired Personal on the same Wi-Fi. Tap a Hue light to toggle it; Govee uses explicit on/off buttons because its API does not report current power. Set brightness or colour only where supported. Security shows verified Ring camera state, recent events and on-demand previews. Automation shows connected integrations and accepts a single reviewed on/off command. Credentials and routines remain managed in Personal."),
+        HelpSection(title: "Mission Control", detail: "Home Command loads Hue and Govee devices from paired Personal on the same Wi-Fi. Tap a Hue light to toggle it; Govee uses explicit on/off buttons because its API does not report current power. Set brightness or colour only where supported. Quick Scenes can set all verified lights for Welcome Home, Focus, Movie or Good Night after you confirm. Security shows verified Ring camera state, recent events and on-demand previews. Automation shows connected integrations and accepts a single reviewed on/off command. Credentials and routines remain managed in Personal."),
         HelpSection(title: "Concierge and Media", detail: "Concierge plans a basket through paired Personal on the same Wi-Fi. Review allergies, estimated cost and every item before opening a provider; Sentinel never places or pays for an order. Mobile DJ imports supported audio files into two local decks with a crossfader and auto mix. Media also controls active Windows playback through Personal, but cannot control other iPhone apps or claim VirtualDJ/TIDAL deck state."),
         HelpSection(title: "Device Scanner", detail: "Unlock Developer Mode in Personal, then run a safe scan from the paired iPhone on the same Wi-Fi. Results are Personal's existing Windows Bluetooth and network records, not an iPhone-wide scan. Marking a device trusted is a private label, not control permission."),
         HelpSection(title: "Desktop sync", detail: "Pair using the six-digit code from Sentinel Personal. Mobile service permissions are separate and never copy raw provider keys to the iPhone."),

@@ -258,11 +258,12 @@ struct SentinelCloud {
         guard let lastMessage = chatMessages.last, lastMessage.apiRole == "user" else { throw AssistantChatError.invalidResponse }
         let history = chatMessages.dropLast().map { LocalChatRequest.Message(role: $0.apiRole, content: $0.text) }
 
+        let memoryContext = context.memories.isEmpty ? "" : "User-approved Sentinel memories (use only when relevant):\n- \(context.memories.joined(separator: "\n- "))\n\n"
         let localMessage: String
         if let location = context.location {
-            localMessage = "Current iPhone location (authoritative): \(location.latitude),\(location.longitude). Use this location for local questions.\n\n\(lastMessage.text)"
+            localMessage = "\(memoryContext)Current iPhone location (authoritative): \(location.latitude),\(location.longitude). Use this location for local questions.\n\n\(lastMessage.text)"
         } else {
-            localMessage = lastMessage.text
+            localMessage = memoryContext + lastMessage.text
         }
         let localBody = try JSONEncoder().encode(LocalChatRequest(message: localMessage, history: history))
         // Probe the bridge before sending a provider request. A healthy desktop
@@ -413,7 +414,7 @@ private struct AssistantChatResponse: Decodable {
 struct AssistantGeneratedImage: Decodable { let id: String?; let prompt: String; let revisedPrompt: String?; let mimeType: String; let data: String }
 struct AssistantChatDelivery { let reply: String; let title: String?; let summary: String?; let actions: [SentinelChatAction]; let cards: [SentinelChatCard]; let images: [AssistantGeneratedImage]; let verifiedAt: String? }
 struct MobileChatLocation: Encodable { let latitude: Double; let longitude: Double }
-struct MobileChatContext: Encodable { let platform: String; let appVersion: String; let contentVersion: String; let currentPage: String; let enabledServices: [String]; let companionOnline: Bool; let weatherSummary: String?; let weatherLocation: String?; let selectedDestination: String?; let selectedFlight: String?; let localTime: String; let locale: String; let capabilities: [String]; let location: MobileChatLocation? }
+struct MobileChatContext: Encodable { let platform: String; let appVersion: String; let contentVersion: String; let currentPage: String; let enabledServices: [String]; let companionOnline: Bool; let weatherSummary: String?; let weatherLocation: String?; let selectedDestination: String?; let selectedFlight: String?; let localTime: String; let locale: String; let capabilities: [String]; let memories: [String]; let location: MobileChatLocation? }
 private struct MobileChatRequest: Encodable { struct Message: Encodable { let role: String; let content: String }; struct Attachment: Encodable { let name: String; let mimeType: String; let data: String }; let conversationID: String; let messages: [Message]; let context: MobileChatContext; let attachments: [Attachment]; enum CodingKeys: String, CodingKey { case conversationID = "conversationId", messages, context, attachments } }
 private struct WorkerServiceError: LocalizedError {
     let detail: String
