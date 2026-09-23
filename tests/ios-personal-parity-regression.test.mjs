@@ -73,8 +73,29 @@ test("Home provides an operational daily briefing without adding the Personal De
   assert.match(model, /func refreshCommandCentre\(\) async/);
   assert.match(root, /Card\(title: "DAILY BRIEFING"/);
   assert.match(root, /app\.speakDailyBriefing\(\)/);
+  assert.match(model, /cloud\.synthesiseSentinelSpeech\(text\)/);
+  assert.match(model, /AVAudioPlayer\(data: audio\)/);
+  assert.doesNotMatch(model, /AVSpeechSynthesizer|AVSpeechUtterance/);
+  assert.match(cloud, /\/mobile\/services\/speech/);
+  assert.match(worker, /gpt-4o-mini-tts/);
+  assert.match(worker, /voice: "cedar"/);
   const pages = model.slice(model.indexOf("enum SentinelPage:"), model.indexOf("enum SentinelJourneyMode:"));
   assert.doesNotMatch(pages, /case design\s*=/);
+});
+
+test("Live Talk uses GA WebRTC SDP and reports API-credit failures", () => {
+  assert.match(live, /request\.setValue\("application\/sdp", forHTTPHeaderField: "Content-Type"\)/);
+  assert.doesNotMatch(live, /SentinelRealtimeBoundary|multipart\/form-data/);
+  assert.match(live, /MobileServiceError\.from\(response: response, data: data\)/);
+  assert.match(worker, /credit_balance_exhausted/);
+  assert.match(cloud, /case \.creditBalanceExhausted/);
+});
+
+test("Weekly weather extends limited WeatherAPI plans to seven days", () => {
+  assert.match(model, /providerWeather\.daily\.time\.count < 7/);
+  assert.match(model, /weatherService\.forecast\(latitude:/);
+  assert.match(model, /SentinelWeather\(current: providerWeather\.current, hourly: extended\.hourly, daily: extended\.daily\)/);
+  assert.match(root, /weather\.daily\.time\.prefix\(7\)/);
 });
 
 test("every supported Personal module has a purpose-built mobile workspace", () => {

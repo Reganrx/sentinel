@@ -180,7 +180,8 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
     private let voiceInput = SentinelVoiceInput()
     private let conversationRepository = ConversationRepository()
     private let memoryRepository = MemoryRepository()
-    private let speechSynthesizer = AVSpeechSynthesizer()
+    private var sentinelSpeechPlayer: AVAudioPlayer?
+    private var sentinelSpeechTask: Task<Void, Never>?
 
     override init() {
         let info = Bundle.main.infoDictionary
@@ -1128,9 +1129,37 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
 
     func removeChatAttachment(_ attachment: SentinelChatAttachment) { chatAttachments.removeAll { $0.id == attachment.id } }
     func showChatError(_ message: String) { chatError = message }
-    func setSpokenResponses(_ enabled: Bool) { spokenResponses = enabled; UserDefaults.standard.set(enabled, forKey: "sentinelSpokenResponses"); if !enabled { speechSynthesizer.stopSpeaking(at: .immediate) } }
-    func speakAssistantResponse(_ text: String) { let lower = text.lowercased(); guard !["password", "api key", "access token", "pairing code"].contains(where: lower.contains) else { return }; speechSynthesizer.stopSpeaking(at: .immediate); let utterance = AVSpeechUtterance(string: text); utterance.voice = AVSpeechSynthesisVoice(language: "en-GB"); speechSynthesizer.speak(utterance) }
-    func stopSpeaking() { speechSynthesizer.stopSpeaking(at: .immediate) }
+    func setSpokenResponses(_ enabled: Bool) { spokenResponses = enabled; UserDefaults.standard.set(enabled, forKey: "sentinelSpokenResponses"); if !enabled { stopSpeaking() } }
+    func speakAssistantResponse(_ text: String) {
+        let lower = text.lowercased()
+        guard !["password", "api key", "access token", "pairing code"].contains(where: lower.contains) else { return }
+        stopSpeaking()
+        sentinelSpeechTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let audio = try await cloud.synthesiseSentinelSpeech(text)
+                try Task.checkCancellation()
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+                try session.setActive(true)
+                let player = try AVAudioPlayer(data: audio)
+                sentinelSpeechPlayer = player
+                player.prepareToPlay()
+                guard player.play() else { throw URLError(.cannotDecodeContentData) }
+            } catch is CancellationError {
+                return
+            } catch {
+                commandCentreStatus = error.localizedDescription
+            }
+        }
+    }
+    func stopSpeaking() {
+        sentinelSpeechTask?.cancel()
+        sentinelSpeechTask = nil
+        sentinelSpeechPlayer?.stop()
+        sentinelSpeechPlayer = nil
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
     var conversationExportText: String { "\(conversationTitle)\n\n" + chatMessages.map { "[\($0.role.rawValue.capitalized)] \($0.text)" }.joined(separator: "\n\n") }
 
     private func storeGeneratedImages(_ images: [AssistantGeneratedImage]) -> [SentinelGeneratedImage] {
@@ -1867,7 +1896,14 @@ final class SentinelAppModel: NSObject, ObservableObject, @preconcurrency CLLoca
                 }
 #endif
                 weatherDetails = response
-                weather = SentinelWeather(weatherAPI: response)
+                let providerWeather = SentinelWeather(weatherAPI: response)
+                if providerWeather.daily.time.count < 7,
+                   let extended = try? await weatherService.forecast(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude),
+                   extended.daily.time.count >= 7 {
+                    weather = SentinelWeather(current: providerWeather.current, hourly: extended.hourly, daily: extended.daily)
+                } else {
+                    weather = providerWeather
+                }
 
                 weatherStatus =
                     "Updated for your current location."

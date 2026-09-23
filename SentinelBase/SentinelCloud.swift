@@ -327,6 +327,11 @@ struct SentinelCloud {
         return try await mobileServiceRequest(path: path, body: data, token: token)
     }
 
+    func synthesiseSentinelSpeech(_ text: String) async throws -> Data {
+        struct SpeechRequest: Encodable { let text: String }
+        return try await postMobileService(path: "/mobile/services/speech", body: SpeechRequest(text: String(text.prefix(4096))))
+    }
+
     func mobileServiceResponse(path: String, queryItems: [URLQueryItem] = []) async throws -> (data: Data, statusCode: Int) {
         guard let token = KeychainStore.string(for: "mobileServiceAccessToken") else { throw MobileServiceError.permissionRequired }
         var components = URLComponents(url: endpoint.appending(path: path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))), resolvingAgainstBaseURL: false)!
@@ -433,7 +438,7 @@ private struct WorkerServiceError: LocalizedError {
 }
 
 enum MobileServiceError: LocalizedError {
-    case permissionRequired, accessExpired, notPermitted, endpointMissing, credentialsMissing, rateLimited, providerUnavailable, message(String), response(Int, String)
+    case permissionRequired, accessExpired, notPermitted, endpointMissing, credentialsMissing, creditBalanceExhausted, rateLimited, providerUnavailable, message(String), response(Int, String)
     var errorDescription: String? {
         switch self {
         case .permissionRequired: "This service has not been enabled for this iPhone. Enable it in Sentinel Personal → Settings → Companion Sync → Mobile Service Access."
@@ -441,16 +446,19 @@ enum MobileServiceError: LocalizedError {
         case .notPermitted: "This service is not permitted for this iPhone."
         case .endpointMissing: "The deployed Worker does not contain the radar endpoint."
         case .credentialsMissing: "The service credentials are no longer configured in Sentinel Personal."
+        case .creditBalanceExhausted: "The OpenAI API credit balance is exhausted. Add API credit in OpenAI Platform billing, then reconnect."
         case .rateLimited: "Rate limit reached. Please wait and try again."
         case .providerUnavailable: "The upstream provider is temporarily unavailable."
         case .message(let message): message
         case .response(_, let message): message
         }
     }
-    var httpStatus: Int? { switch self { case .accessExpired: 401; case .notPermitted: 403; case .endpointMissing: 404; case .credentialsMissing: 409; case .rateLimited: 429; case .providerUnavailable: 502; case .response(let status, _): status; default: nil } }
+    var httpStatus: Int? { switch self { case .creditBalanceExhausted: 402; case .accessExpired: 401; case .notPermitted: 403; case .endpointMissing: 404; case .credentialsMissing: 409; case .rateLimited: 429; case .providerUnavailable: 502; case .response(let status, _): status; default: nil } }
     static func from(response: URLResponse, data: Data) -> MobileServiceError {
         let status = (response as? HTTPURLResponse)?.statusCode
         let workerError = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String
+        let workerCode = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["code"] as? String
+        if status == 402 || workerCode == "credit_balance_exhausted" { return .creditBalanceExhausted }
         if let workerError, !workerError.isEmpty { return .response(status ?? 0, workerError) }
         switch status {
         case 401: return .accessExpired

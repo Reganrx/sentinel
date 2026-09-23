@@ -468,6 +468,7 @@ export class SentinelCoordinator {
       upstream_timeout: "The service took too long to respond. Please try again.",
       upstream_unavailable: "The service is temporarily unavailable. Please try again.",
       provider_rate_limit: "The provider request limit was reached. Please wait before trying again.",
+      credit_balance_exhausted: "The OpenAI API credit balance is exhausted. Add API credit in OpenAI Platform billing, then try again.",
       provider_credentials: "The provider credentials or service access need checking in Sentinel Personal.",
       provider_request_rejected: "The provider could not process this request. Try a shorter or simpler request.",
       invalid_provider_response: "The provider returned an unreadable response. Please try again.",
@@ -477,9 +478,19 @@ export class SentinelCoordinator {
     };
     return Object.assign(new Error(messages[code] || messages.upstream_unavailable), { serviceError: true, code, status, retryable });
   }
-  function providerStatus(response) {
+  async function providerStatus(response) {
     if (response.ok) return;
-    if (response.status === 429) throw serviceFailure("provider_rate_limit", 429, true);
+    if (response.status === 429) {
+      let providerCode = "";
+      try {
+        const payload = await response.clone().json();
+        providerCode = String(payload?.error?.code || payload?.code || "");
+      } catch {}
+      if (providerCode === "credit_balance_exhausted") {
+        throw serviceFailure("credit_balance_exhausted", 402, false);
+      }
+      throw serviceFailure("provider_rate_limit", 429, true);
+    }
     if ([401, 403].includes(response.status)) throw serviceFailure("provider_credentials", 409);
     if (response.status >= 500) throw serviceFailure("upstream_unavailable", 502, true);
     throw serviceFailure("provider_request_rejected", 422);
@@ -497,7 +508,7 @@ export class SentinelCoordinator {
     const work = async () => {
       const response = await fetch(resource, { ...init, signal: controller.signal });
       // Check status without reading a potentially huge or secret-bearing error body.
-      if (!response.ok) { void response.body?.cancel().catch(() => {}); providerStatus(response); }
+      if (!response.ok) { await providerStatus(response); }
       if (Number(response.headers.get("content-length") || 0) > maxBytes) { void response.body?.cancel().catch(() => {}); throw serviceFailure("response_too_large"); }
       reader = response.body?.getReader();
       const chunks = [];
@@ -1917,6 +1928,37 @@ export class SentinelCoordinator {
             const context = mobileChatInput({ prompt: "live tool", context: body.context || session.context })?.safeContext || {};
             const result = await executeAssistantTool(service, query, credentials, { ...context, platform: "ios", enabledServices: session.services });
             return json({ ok: true, service, status: "completed", verifiedAt: new Date().toISOString(), result });
+          } catch (error) {
+            return serviceErrorResponse(error);
+          }
+        }
+        if (url.pathname === "/mobile/services/speech" && request.method === "POST") {
+          const auth = await mobileAccessAuthorised(request, env);
+          if (!auth) return json({ error: "Mobile access has expired. Reconnect or refresh Mobile Service Access." }, 401);
+          if (!auth.permission.services.includes("chat")) return json({ error: "Chat access is not enabled for this iPhone." }, 403);
+          if (!(await enforceMobileRateLimit(env, auth, "speech"))) return json({ error: "Speech request limit reached. Try again shortly." }, 429);
+          const vault = await mobileVault(env, auth.installationId);
+          const apiKey = String(vault?.credentials?.chat?.apiKey || "");
+          if (apiKey.length < 20) return json({ error: "Chat credentials are no longer configured in Sentinel Personal." }, 409);
+          const body = await request.json().catch(() => ({}));
+          const input = String(body.text || "").trim().slice(0, 4096);
+          if (!input) return json({ error: "Enter text for Sentinel to speak." }, 400);
+          try {
+            const response = await fetchWithTimeout("https://api.openai.com/v1/audio/speech", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${apiKey}`, "content-type": "application/json", Accept: "audio/aac" },
+              body: JSON.stringify({
+                model: "gpt-4o-mini-tts",
+                voice: "cedar",
+                input,
+                instructions: "Speak as Sentinel: calm, polished, warm British delivery with clear pacing. Never sound theatrical.",
+                response_format: "aac",
+              }),
+            }, 20000, 8_000_000);
+            return new Response(await response.arrayBuffer(), {
+              status: 200,
+              headers: { "content-type": "audio/aac", "cache-control": "no-store" },
+            });
           } catch (error) {
             return serviceErrorResponse(error);
           }

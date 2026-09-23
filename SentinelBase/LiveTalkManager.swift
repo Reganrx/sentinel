@@ -44,12 +44,16 @@ final class LiveTalkManager: NSObject, ObservableObject {
             var request = URLRequest(url: url); request.httpMethod = "POST"; request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization"); request.setValue("application/json", forHTTPHeaderField: "Content-Type"); request.setValue("application/json", forHTTPHeaderField: "Accept")
             request.httpBody = try JSONSerialization.data(withJSONObject: ["platform":"ios", "conversationId":conversationId.uuidString, "locale":"en-GB", "voice":"cedar", "enabledServices":enabledServices, "context":context])
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { state = .failed; status = "Live session could not be started."; return }
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                state = .failed
+                status = MobileServiceError.from(response: response, data: data).localizedDescription
+                return
+            }
             let session = try JSONDecoder().decode(Session.self, from: data)
             guard session.transport == "webrtc", session.webrtcOfferUrl.hasPrefix("https://"), !session.ephemeralToken.isEmpty else { state = .failed; status = "Invalid live-session response."; return }
             sessionID = session.sessionId
             ephemeralToken = session.ephemeralToken; offerURL = URL(string: session.webrtcOfferUrl); try await preparePeerConnection(); status = "Listening"; state = .listening
-        } catch { state = .failed; status = "Live session is unavailable." }
+        } catch { state = .failed; status = error.localizedDescription }
     }
 
     func end() { channel?.close(); peer?.close(); channel = nil; peer = nil; microphoneTrack = nil; assistantAudioTrack = nil; ephemeralToken = nil; sessionID = nil; try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation); state = .ended; status = "Conversation ended" }
@@ -97,19 +101,22 @@ final class LiveTalkManager: NSObject, ObservableObject {
 
     private func negotiate(offer: RTCSessionDescription, connection: RTCPeerConnection) async throws {
         guard let offerURL, let ephemeralToken else { throw URLError(.userAuthenticationRequired) }
-        let boundary = "SentinelRealtimeBoundary"
-        var body = Data()
-        func field(_ name: String, _ value: String, _ contentType: String) { body.append("--\(boundary)\r\n".data(using: .utf8)!); body.append("Content-Disposition: form-data; name=\"\(name)\"\r\nContent-Type: \(contentType)\r\n\r\n".data(using: .utf8)!); body.append(value.data(using: .utf8)!); body.append("\r\n".data(using: .utf8)!) }
-        field("sdp", offer.sdp, "application/sdp")
-        field("session", "{\"type\":\"realtime\",\"model\":\"gpt-realtime\"}", "application/json")
-        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
-        var request = URLRequest(url: offerURL); request.httpMethod = "POST"; request.httpBody = body; request.setValue("Bearer \(ephemeralToken)", forHTTPHeaderField: "Authorization"); request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        var request = URLRequest(url: offerURL)
+        request.httpMethod = "POST"
+        request.httpBody = offer.sdp.data(using: .utf8)
+        request.setValue("Bearer \(ephemeralToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/sdp", forHTTPHeaderField: "Content-Type")
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode), let sdp = String(data: data, encoding: .utf8), !sdp.isEmpty else { throw URLError(.badServerResponse) }
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode), let sdp = String(data: data, encoding: .utf8), !sdp.isEmpty else {
+            let detail = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"]
+            let message = (detail as? [String: Any])?["message"] as? String ?? detail as? String ?? "The live voice provider rejected the connection."
+            throw LiveTalkError(message: message)
+        }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in connection.setRemoteDescription(RTCSessionDescription(type: .answer, sdp: sdp)) { error in if let error { continuation.resume(throwing: error) } else { continuation.resume(returning: ()) } } }
     }
 
     private struct Session: Decodable { let sessionId: String; let transport: String; let webrtcOfferUrl: String; let ephemeralToken: String; enum CodingKeys: String, CodingKey { case sessionId, transport, webrtcOfferUrl, ephemeralToken } }
+    private struct LiveTalkError: LocalizedError { let message: String; var errorDescription: String? { message } }
 
     private func handleRealtimeEvent(_ object: [String: Any]) {
         guard let type = object["type"] as? String else { return }
